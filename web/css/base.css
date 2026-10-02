@@ -372,3 +372,4 @@ body.is-embed .paper { padding-top: 12px; }
   .nav { gap: 12px; }
   .nav a { letter-spacing: 0.06em; }
 }
+.gen__sub .dot, .ob .dot { margin: 0 0.45em; color: var(--accent); font-style: normal; }

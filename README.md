@@ -65,3 +65,12 @@ docs/ARCHITECTURE.md    engine · edition · delivery, data model, cost, what’
 ## App map
 
 `#/` home · `#/welcome` onboarding · `#/read/:edition` newspaper · `#/story/:edition/:story` depth view · `#/source/:edition/:source` original source · `#/topics` · `#/settings` · `#/download` · `#/compare` the four prototypes · `#/edition/:id` how an edition was made (audit)
+
+## Product walkthrough
+
+[`docs/walkthrough/Over-Coffee-Walkthrough.pdf`](docs/walkthrough/Over-Coffee-Walkthrough.pdf): every screen (S01–S36) and the four newspapers (N1–N4) in one document, with a feedback sheet. To regenerate after design changes, start the server and run:
+
+```bash
+node scripts/walkthrough/capture.mjs data/walkthrough/shots     # screenshots via Playwright
+node scripts/walkthrough/build.mjs   data/walkthrough/shots docs/walkthrough/Over-Coffee-Walkthrough.pdf
+```

@@ -48,8 +48,8 @@ export function renderEmailHtml({ edition, mode, baseUrl }) {
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:20px;overflow:hidden">
 <tr><td style="padding:28px 32px 8px">
   <table role="presentation"><tr>
-    <td width="40" height="40" align="center" bgcolor="${accent}" style="border-radius:11px;color:#fff;font:800 20px ${font}">C.</td>
-    <td style="padding-left:12px;font:700 18px ${font};color:#0a0b10;letter-spacing:-.01em">Over Coffee<div style="font:500 12px ${font};color:#7a7f8c;letter-spacing:0">${esc(longDate(edition.editorialDate))}</div></td>
+    <td><img src="${baseUrl}/assets/email-logo.png" height="32" alt="Over Coffee" style="display:block;height:32px;width:auto;border:0"></td>
+    <td style="padding-left:14px;font:500 12px ${font};color:#7a7f8c;letter-spacing:0;vertical-align:bottom;padding-bottom:3px">${esc(longDate(edition.editorialDate))}</td>
   </tr></table>
 </td></tr>
 <tr><td style="padding:12px 32px 0"><div style="font:${social ? '800 30px/1.1' : '700 28px/1.15'} ${font};color:#0a0b10;letter-spacing:-.02em">${social ? 'Morning. Here’s what happened.' : 'Good morning. Here’s what matters.'}</div>
@@ -63,7 +63,7 @@ export function renderEmailHtml({ edition, mode, baseUrl }) {
 
 export function pushPayload({ edition, mode, baseUrl }) {
   const h = withLink(edition.hooks, readLink(baseUrl, edition, mode))[mode];
-  return { title: h.push.title, body: h.push.body, tag: `oc-${edition.editorialDate}`, url: readLink(baseUrl, edition, mode), icon: `${baseUrl}/assets/app-icon.svg` };
+  return { title: h.push.title, body: h.push.body, tag: `oc-${edition.editorialDate}`, url: readLink(baseUrl, edition, mode), icon: `${baseUrl}/assets/icon-192.png` };
 }
 
 export function whatsappPayload({ edition, mode, baseUrl, number }) {

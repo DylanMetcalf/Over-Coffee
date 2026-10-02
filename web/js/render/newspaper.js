@@ -10,7 +10,7 @@
 
 import { esc, longDate, shortDate, hm, plural, numberWord, toneFor } from './util.js';
 import { tierCopy, STATUS_LABEL } from '../shared/format.js';
-import { markSvg } from './mark.js';
+import { markSvg, wordmarkSvg } from './mark.js';
 import { illustrationSvg } from './illustration.js';
 import { chartSvg, fmtFigure } from './chart.js';
 
@@ -63,8 +63,8 @@ function readMinutes(ctx) {
   return ctx.ed.stats.readingMinutes[ctx.mode];
 }
 
-function lockup(size = 40, { word = 'Over Coffee', cls = '' } = {}) {
-  return `<span class="lockup ${cls}">${markSvg({ size })}<span class="lockup__word">${esc(word)}</span></span>`;
+function lockup(size = 40, { cls = '' } = {}) {
+  return `<span class="lockup ${cls}">${wordmarkSvg({ height: size, ink: 'var(--ink)' })}</span>`;
 }
 
 /** Row sizes for a run of cards so every row is full (no orphans). */
@@ -138,7 +138,7 @@ function businessMasthead(ctx) {
   const n = ed.stories.length;
   return `<header class="mast">
   <div class="mast__row">
-    ${lockup(46, { cls: 'lockup--xl' })}
+    ${lockup(50, { cls: 'lockup--xl' })}
     <div class="mast__right"><span class="pill">${esc(longDate(ed.editorialDate))}</span><span class="pill pill--solid">${readMinutes(ctx)}-minute edition</span></div>
   </div>
   <div class="mast__sub">
@@ -322,7 +322,7 @@ function socialMasthead(ctx) {
   const { ed } = ctx;
   const n = ed.stories.length;
   return `<header class="s-mast">
-  <div class="s-mast__top">${lockup(40, { word: 'over coffee', cls: 'lockup--social' })}<span class="pill">${esc(shortDate(ed.editorialDate))}</span></div>
+  <div class="s-mast__top">${lockup(44, { cls: 'lockup--social' })}<span class="pill">${esc(shortDate(ed.editorialDate))}</span></div>
   <h1 class="s-greet">Morning.<br><em>Here’s the tea.</em></h1>
   <p class="s-sub">${n ? `${numberWord(n)} ${n === 1 ? 'thing' : 'things'} happened. About ${readMinutes(ctx)} minute${readMinutes(ctx) === 1 ? '' : 's'} to catch up.` : 'A quiet one today.'}</p>
   <div class="s-chips">${ed.topics.map((t) => `<span class="chip-s tone-${toneFor(t.id)}"><i></i>${esc(t.label)}</span>`).join('')}</div>

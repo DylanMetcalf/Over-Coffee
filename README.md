@@ -74,3 +74,10 @@ docs/ARCHITECTURE.md    engine · edition · delivery, data model, cost, what’
 node scripts/walkthrough/capture.mjs data/walkthrough/shots     # screenshots via Playwright
 node scripts/walkthrough/build.mjs   data/walkthrough/shots docs/walkthrough/Over-Coffee-Walkthrough.pdf
 ```
+
+## Brand identity
+
+The logo is a type-led system: an italic serif **over**, a heavy grotesque **coffee** and a full stop (the edition ends), with an italic **c.** symbol for app icons and favicons and an **oc.** monogram. See `docs/brand/brand-sheet.html` for the system, applications and the concepts that were compared.
+
+- Source of truth: `web/js/render/mark.js` (letterforms outlined in `logo-paths.js`, so no web font is needed).
+- Regenerate: `python3 scripts/logo/build-logo.py` (needs `pip install fonttools brotli`), `node scripts/logo/build-assets.mjs` (SVG + PNG files in `web/assets`), `node scripts/logo/brand-sheet.mjs`.

@@ -12,8 +12,7 @@ html, body.print-body { background: #fff; margin: 0; }
 
 /* ── Business: front page ── */
 .paper--print .mast { padding: 0 0 4mm; }
-.paper--print .lockup--xl .lockup__word { font-size: 24pt; }
-.paper--print .lockup--xl .oc-mark { width: 30px; height: 30px; }
+.paper--print .lockup--xl .oc-word { height: 40px; width: auto; }
 .paper--print .pill { padding: 5px 10px; font-size: 7.5pt; }
 .paper--print .mast__sub { margin-top: 4mm; }
 .paper--print .mast__tag { font-size: 17pt; }
@@ -75,7 +74,7 @@ html, body.print-body { background: #fff; margin: 0; }
 .paper--print.paper--social { padding: 6mm 6mm 0; }
 .paper--print .s-mast { padding: 0 0 5mm; }
 .paper--print .s-mast__top { margin-bottom: 5mm; }
-.paper--print .lockup--social .lockup__word { font-size: 18pt; }
+.paper--print .lockup--social .oc-word { height: 30px; width: auto; }
 .paper--print .s-greet { font-size: 54pt; margin-bottom: 3mm; }
 .paper--print .s-sub { font-size: 10.5pt; }
 .paper--print .s-tldr { padding: 6mm 7mm 4mm; border-radius: 6mm; margin-bottom: 5mm; break-inside: avoid; }
@@ -138,3 +137,6 @@ html, body.print-body { background: #fff; margin: 0; }
 .paper--print .s-mast, .paper--print .mast { break-after: avoid; }
 .paper--print .colophon { padding-top: 6mm; margin-top: 3mm; gap: 6px; }
 .paper--print .colophon .oc-mark { width: 30px; height: 30px; }
+
+/* gradient text can leave a hairline artefact in Chromium's PDF output */
+.paper--print .s-greet em, .paper--print .s-remember p { background: none; -webkit-text-fill-color: #ff3d55; color: #ff3d55; }

@@ -13,7 +13,6 @@
 .paper--social { max-width: 1120px; }
 .paper--social .sample-banner { background: #fff0d9; border-color: #ffd9a8; }
 
-.paper--social .lockup--social .lockup__word { font-weight: 800; }
 .grad-text, .s-greet em, .s-remember p { background: linear-gradient(100deg, #ff7a1a 0%, #ff2d55 50%, #6b4eff 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
 
 /* masthead */

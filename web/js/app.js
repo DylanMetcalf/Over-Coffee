@@ -5,7 +5,7 @@
 import { api } from './api.js';
 import { renderNewspaper } from './render/newspaper.js';
 import { renderStory, renderSource } from './render/story.js';
-import { markSvg } from './render/mark.js';
+import { markSvg, wordmarkSvg } from './render/mark.js';
 import { esc, longDate, shortDate, hm, plural, numberWord, toneFor } from './render/util.js';
 
 const $app = document.getElementById('app');
@@ -67,7 +67,7 @@ async function getCatalog() {
 
 const topicLine = (topics) => topics.map((t) => esc(t.label)).join('<span class="dot">·</span>');
 
-document.querySelector('.brand').innerHTML = `${markSvg({ size: 34 })}<span>Over Coffee</span>`;
+document.querySelector('.brand').innerHTML = `${markSvg({ size: 36 })}${wordmarkSvg({ height: 22, ink: 'var(--ink)' })}`;
 
 // ── the morning ping: push · WhatsApp · email previews ───────────────────────
 

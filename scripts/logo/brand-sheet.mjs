@@ -76,14 +76,14 @@ tr.win td:first-child{font-weight:700}
 <h2>The system</h2>
 <p>Every piece comes from one source file (<code>web/js/render/mark.js</code>). Letterforms are outlined, so the logo never depends on a web font.</p>
 <div class="g4" style="margin-top:14px">
-  <div class="card">${markSvg({ size: 140 })}<div class="cap">App icon · symbol</div></div>
+  <div class="card">${markSvg({ size: 140 })}<div class="cap">App icon · warm paper</div></div>
   <div class="card">${markSvg({ size: 140, monogram: true })}<div class="cap">OC monogram</div></div>
-  <div class="card dark">${markSvg({ size: 140, tone: 'dark' })}<div class="cap">Dark</div></div>
-  <div class="card">${markSvg({ size: 140, tone: 'light' })}<div class="cap">Light</div></div>
+  <div class="card dark">${markSvg({ size: 140, tone: 'dark' })}<div class="cap">Dark · ink</div></div>
+  <div class="card">${markSvg({ size: 140, tone: 'light' })}<div class="cap">Light · on white</div></div>
 </div>
 <div class="g4" style="margin-top:16px">
   <div class="card"><div style="color:#0a0b10">${markSvg({ size: 110, tone: 'mono' })}</div><div class="cap">Monochrome symbol</div></div>
-  <div class="card"><div style="color:#0a0b10">${wm(54, { accent: '#0a0b10' })}</div><div class="cap">Monochrome wordmark</div></div>
+  <div class="card"><div style="color:#0a0b10">${wm(40, { accent: "#0a0b10" })}</div><div class="cap">Monochrome wordmark</div></div>
   <div class="card"><div class="row">${[64, 40, 28, 20, 16].map((s) => markSvg({ size: s })).join('')}</div><div class="cap">Small sizes (hairlines thicken ≤ 28 px)</div></div>
   <div class="card"><div class="row" style="gap:10px"><span style="display:flex;align-items:center;gap:10px">${markSvg({ size: 52 })}${wm(34)}</span></div><div class="cap">Lockup · symbol + wordmark</div></div>
 </div>
@@ -126,7 +126,7 @@ tr.win td:first-child{font-weight:700}
 
 <h2>Rules</h2>
 <div class="g2">
-<div class="card" style="align-items:flex-start"><h3>Use it like this</h3><ul class="rule"><li>Keep clear space equal to the height of the “o” on every side.</li><li>Minimum wordmark height 16 px digital, 6 mm print. Below that, use the symbol alone.</li><li>The dot is always the accent colour (red, yellow on the gradient tile, red-orange on dark).</li><li>Wordmark on white or espresso black only. Never on photography without a scrim.</li></ul></div>
+<div class="card" style="align-items:flex-start"><h3>Use it like this</h3><ul class="rule"><li>Keep clear space equal to the height of the “o” on every side.</li><li>Minimum wordmark height 16 px digital, 6 mm print. Below that, use the symbol alone.</li><li>The dot is always the accent red (a warmer red-orange on dark). The app icon is a quiet warm-paper tile with an ink letter; no gradients.</li><li>Wordmark on white or espresso black only. Never on photography without a scrim.</li></ul></div>
 <div class="card" style="align-items:flex-start"><h3>Never</h3><ul class="rule"><li>Re-set the wordmark in another font or change the italic/bold pairing.</li><li>Drop the full stop, or add a second one.</li><li>Put the symbol in a circle, add a coffee cup, steam or a drop shadow.</li><li>Recolour “over” and “coffee” the same colour except in the monochrome version.</li></ul></div>
 </div>
 <div class="kick" style="margin-top:40px">Source: scripts/logo/build-logo.py · build-assets.mjs · brand-sheet.mjs</div>

@@ -12,7 +12,8 @@
 import { OVER_PATH, OVER_W, COFFEE_PATH, COFFEE_W, DOT_PATH, DOT_W, C_PATH, OC_PATH } from './logo-paths.js';
 
 export const BRAND = {
-  grad: ['#ff7a1a', '#ff2d55'],
+  paper: ['#fbf8f3', '#f1ebe1'], // warm newsprint tile
+  paperEdge: '#e4dccf',
   sun: '#ffd93d',
   ink: '#0a0b10',
   red: '#ff2d55',
@@ -46,7 +47,7 @@ export function glyph({ ink = '#fff', sun = BRAND.sun, mono = false, monogram = 
 }
 
 function tileDefs(id) {
-  return `<defs><linearGradient id="${id}" x1="6" y1="2" x2="58" y2="62" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${BRAND.grad[0]}"/><stop offset="1" stop-color="${BRAND.grad[1]}"/></linearGradient><radialGradient id="${id}s" cx="0.2" cy="0.05" r="0.9"><stop offset="0" stop-color="#fff" stop-opacity="0.26"/><stop offset="0.6" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>`;
+  return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${BRAND.paper[0]}"/><stop offset="1" stop-color="${BRAND.paper[1]}"/></linearGradient><linearGradient id="${id}k" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a1b22"/><stop offset="1" stop-color="${BRAND.ink}"/></linearGradient></defs>`;
 }
 
 /**
@@ -61,13 +62,12 @@ export function markSvg({ size = 32, title = 'Over Coffee', cls = '', animate = 
   if (tone === 'plain' || tone === 'mono') {
     return `${open}${glyph({ ink: 'currentColor', sun: 'var(--mark-dot, #ff2d55)', mono: tone === 'mono', monogram, bold })}</svg>`;
   }
+  const rect = (fill, edge) => `<rect x="0.75" y="0.75" width="62.5" height="62.5" rx="${rx}" fill="${fill}"${edge ? ` stroke="${edge}" stroke-width="1.5"` : ''}/>`;
   if (tone === 'dark') {
-    return `${open}<rect width="64" height="64" rx="${rx}" fill="${BRAND.ink}"/>${glyph({ ink: '#fff', sun: BRAND.redOnDark, monogram, bold })}</svg>`;
+    return `${open}${tileDefs(id)}${rect(`url(#${id}k)`)}${glyph({ ink: '#fff', sun: BRAND.redOnDark, monogram, bold })}</svg>`;
   }
-  if (tone === 'light') {
-    return `${open}<rect width="64" height="64" rx="${rx}" fill="#fff" stroke="#e6e8ee" stroke-width="1.5"/>${glyph({ ink: BRAND.ink, sun: BRAND.red, monogram, bold })}</svg>`;
-  }
-  return `${open}${tileDefs(id)}<rect width="64" height="64" rx="${rx}" fill="url(#${id})"/><rect width="64" height="64" rx="${rx}" fill="url(#${id}s)"/>${glyph({ monogram, bold })}</svg>`;
+  // 'color' and 'light' are the same quiet paper tile: ink letter, one red dot.
+  return `${open}${tileDefs(id)}${rect(`url(#${id})`, BRAND.paperEdge)}${glyph({ ink: BRAND.ink, sun: BRAND.red, monogram, bold })}</svg>`;
 }
 
 /**
@@ -102,10 +102,22 @@ export function markFile({ tone = 'color', padded = false, monogram = false, bol
   const id = 'g';
   const s = padded ? 0.74 : 1;
   const o = (64 - 64 * s) / 2;
-  const bgRx = padded ? 0 : 18;
-  const inner = glyph(tone === 'dark' ? { ink: '#fff', sun: BRAND.redOnDark, monogram, bold } : tone === 'mono' ? { ink: BRAND.ink, mono: true, monogram, bold } : { monogram, bold });
-  const bg = tone === 'dark' ? `<rect width="64" height="64" rx="${bgRx}" fill="${BRAND.ink}"/>` : tone === 'mono' ? '' : `<rect width="64" height="64" rx="${bgRx}" fill="url(#${id})"/><rect width="64" height="64" rx="${bgRx}" fill="url(#${id}s)"/>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">${tone === 'color' ? tileDefs(id) : ''}${bg}<g transform="translate(${o} ${o}) scale(${s})">${inner}</g></svg>\n`;
+  const rx = padded ? 0 : 18; // padded = full-bleed, the OS rounds it
+  const inset = padded ? 0 : 0.75;
+  const size = 64 - inset * 2;
+  const tile = (fill, edge) => `<rect x="${inset}" y="${inset}" width="${size}" height="${size}" rx="${rx}" fill="${fill}"${edge && !padded ? ` stroke="${edge}" stroke-width="1.5"` : ''}/>`;
+  let bg = '';
+  let inner;
+  if (tone === 'dark') {
+    bg = tile(`url(#${id}k)`);
+    inner = glyph({ ink: '#fff', sun: BRAND.redOnDark, monogram, bold });
+  } else if (tone === 'mono') {
+    inner = glyph({ ink: BRAND.ink, mono: true, monogram, bold });
+  } else {
+    bg = tile(`url(#${id})`, BRAND.paperEdge);
+    inner = glyph({ ink: BRAND.ink, sun: BRAND.red, monogram, bold });
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">${tone === 'mono' ? '' : tileDefs(id)}${bg}<g transform="translate(${o} ${o}) scale(${s})">${inner}</g></svg>\n`;
 }
 
 export function wordmarkFile({ ink = BRAND.ink, accent = BRAND.red, height = 100 } = {}) {

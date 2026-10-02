@@ -6,7 +6,7 @@ export const fmtFigure = (f, v) => `${f.unit === '$' ? '$' : ''}${v.toFixed(f.de
 export function chartSvg(figure, sourceName) {
   const max = Math.max(...figure.data.map((d) => d.value));
   const rowH = 38;
-  const labelW = 112;
+  const labelW = Math.max(112, Math.min(170, Math.max(...figure.data.map((d) => String(d.label).length)) * 7 + 10));
   const barW = 150;
   const h = figure.data.length * rowH;
   const fmt = (v) => fmtFigure(figure, v);

@@ -114,7 +114,7 @@
 
 @media screen and (max-width: 1000px) {
   .s-card--lead { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-  .s-card__art .art { min-height: 300px; }
+  .s-card__art .art { position: relative; top: auto; height: 300px; min-height: 0; }
   .paper--social .row--2 { grid-template-columns: minmax(0, 1fr); }
   .s-tldr__list { grid-template-columns: minmax(0, 1fr); }
 }

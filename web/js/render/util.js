@@ -30,19 +30,23 @@ export const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many
 export const NUMBER_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
 export const numberWord = (n) => NUMBER_WORDS[n] || String(n);
 
-/** Topic accent colours, used sparingly in Business and generously in Social. */
+/** Topic accent tones (see tokens.css): small accents in Business, generous in Social. */
 export const TOPIC_TONE = {
   ai: 'violet',
   technology: 'violet',
   robotics: 'sky',
   manufacturing: 'sky',
-  food: 'tomato',
-  health: 'tomato',
-  farming: 'sage',
-  climate: 'sage',
-  'renewable-energy': 'butter',
+  food: 'amber',
+  health: 'rose',
+  farming: 'green',
+  climate: 'teal',
+  'renewable-energy': 'yellow',
   business: 'ink',
   finance: 'ink',
   photography: 'sky',
+  cars: 'sky',
+  space: 'violet',
+  football: 'green',
+  'south-africa': 'amber',
 };
 export const toneFor = (topicId) => TOPIC_TONE[topicId] || 'ink';

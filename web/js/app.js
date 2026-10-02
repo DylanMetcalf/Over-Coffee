@@ -6,7 +6,7 @@ import { api } from './api.js';
 import { renderNewspaper } from './render/newspaper.js';
 import { renderStory, renderSource } from './render/story.js';
 import { markSvg } from './render/mark.js';
-import { esc, longDate, hm, plural, numberWord } from './render/util.js';
+import { esc, longDate, shortDate, hm, plural, numberWord, toneFor } from './render/util.js';
 
 const $app = document.getElementById('app');
 const $toast = document.getElementById('toast');
@@ -67,6 +67,38 @@ async function getCatalog() {
 
 const topicLine = (topics) => topics.map((t) => esc(t.label)).join('<span class="dot">·</span>');
 
+document.querySelector('.brand').innerHTML = `${markSvg({ size: 34 })}<span>Over Coffee</span>`;
+
+// ── the morning ping: push · WhatsApp · email previews ───────────────────────
+
+const waHtml = (t) => esc(t).replace(/\*(.+?)\*/g, '<b>$1</b>').replace(/https?:\/\/\S+/g, '<a>overcoffee.app/today</a>');
+
+function pingPreview(data, { channels = ['push', 'whatsapp', 'email'], time = '06:00' } = {}) {
+  const h = data.hooks;
+  const dateLine = new Date(data.date + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+  const col = {
+    push: `<div class="ping__col"><h4>Push notification</h4><div class="phone"><div class="phone__time">${esc(time)}</div><div class="phone__date">${esc(dateLine)}</div><div class="notif"><div class="notif__top">${markSvg({ size: 18 })}<span>Over Coffee</span><span>now</span></div><div class="notif__title">${esc(h.push.title)}</div><div class="notif__body">${esc(h.push.body)}</div></div></div></div>`,
+    whatsapp: `<div class="ping__col"><h4>WhatsApp</h4><div class="wa"><div class="wa__head">${markSvg({ size: 34 })}<div>Over Coffee<small>Business account</small></div></div><div class="wa__bubble">${waHtml(h.whatsapp.text)}<span class="wa__time">${esc(time)} ✓✓</span></div></div></div>`,
+    email: `<div class="ping__col"><h4>Email</h4><div class="mail"><div class="mail__row">${markSvg({ size: 38 })}<div><div class="mail__from">Over Coffee</div><div class="mail__subject">${esc(h.email.subject)}</div><div class="mail__pre">${esc(h.email.preheader)}</div></div><span class="mail__time">${esc(time)}</span></div>${data.editionId ? `<div class="mail__foot"><a href="/email/${esc(data.editionId)}?mode=${data.mode}" target="_blank" rel="noopener">Open the full email →</a></div>` : ''}</div></div>`,
+  };
+  return `<div class="ping">${channels.map((c) => col[c]).join('')}</div>`;
+}
+
+async function testPush(h) {
+  if (!('Notification' in window)) return toast('This browser can’t show notifications.');
+  let perm = Notification.permission;
+  if (perm === 'default') perm = await Notification.requestPermission();
+  if (perm !== 'granted') return toast('Notifications are blocked. Allow them in your browser to see a test.');
+  new Notification(h.push.title, { body: h.push.body, icon: '/assets/app-icon.svg', tag: 'oc-test' });
+  toast('Test notification sent.');
+}
+
+const CHANNELS = [
+  ['push', 'Push', 'On your phone or desktop'],
+  ['whatsapp', 'WhatsApp', 'A message with the headline'],
+  ['email', 'Email', 'A short briefing with a link'],
+];
+
 // ── sheet (bottom panel) ─────────────────────────────────────────────────
 
 function openSheet(html, onMount) {
@@ -126,6 +158,8 @@ async function router() {
   document.getElementById('topbar').hidden = parts[0] === 'embed';
   try {
     if (!me) await refreshMe();
+    const $pill = document.getElementById('datepill');
+    if ($pill) $pill.textContent = shortDate(me.today);
     if (!me.profile.onboarded && !['welcome', 'compare', 'embed', 'story', 'source', 'read', 'edition'].includes(parts[0] || '')) return go('#/welcome');
     await view(parts.slice(1), query);
     if (!query.get('at')) window.scrollTo({ top: 0, behavior: 'instant' });
@@ -149,26 +183,31 @@ async function viewHome() {
   const n = ed.stories.length;
   const minutes = ed.stats.readingMinutes[m];
   const override = me.override;
+  const peek = [...ed.stories].sort((a, b) => a.rank - b.rank).slice(0, 4);
   render(
-    `<section class="home"><div class="home__inner">
-      ${ed.sample ? `<div class="sample-banner"><strong>Design prototype — sample edition.</strong> Fictional organisations, people and figures. Not current news.</div>` : ''}
-      ${markSvg({ size: 54, animate: true })}
-      <p class="home__date">${esc(longDate(ed.editorialDate))}</p>
-      <h1 class="home__hello">Good morning.</h1>
-      <p class="home__edition">Your ${minutes}-minute edition.</p>
-      ${override ? `<p class="home__override">${override.reason === 'adventurous' ? 'Feeling adventurous today' : override.reason === 'random' ? 'A random topic, just for today' : 'Changed for today only'}${override.path ? ` — ${esc(override.path.join(' → '))}` : ''}</p>` : ''}
-      <p class="home__topics">${topicLine(ed.topics)}</p>
-      <p class="home__count">${n ? `${numberWord(n)} ${n === 1 ? 'thing' : 'things'} worth knowing today.` : 'A quiet morning. Nothing cleared the bar.'}</p>
-      <div class="home__actions">
-        <a class="btn" href="#/read/${esc(ed.id)}?mode=${m}">Read today’s newspaper</a>
-        <button class="btn btn--ghost" type="button" data-listen>Listen to summary</button>
+    `<section class="home"><div class="home__bg" aria-hidden="true"></div><div class="home__grid">
+      <div class="home__main">
+        ${ed.sample ? `<div class="sample-banner"><strong>Design prototype — sample edition</strong><span>Fictional organisations, people and figures. Not current news.</span></div>` : ''}
+        <span class="eyebrow-pill"><i class="live"></i>${esc(longDate(ed.editorialDate))} · your ${minutes}-minute edition</span>
+        <h1>Good morning.<br><em>Here’s what matters.</em></h1>
+        ${override ? `<p class="home__override">${override.reason === 'adventurous' ? 'Feeling adventurous today' : override.reason === 'random' ? 'A random topic, just for today' : 'Changed for today only'}${override.path ? ` — ${esc(override.path.join(' → '))}` : ''}</p>` : ''}
+        <p class="home__sub">${n ? `<b>${numberWord(n)} ${n === 1 ? 'thing' : 'things'}</b> worth knowing today across ${ed.topics.map((t) => esc(t.label)).join(', ')}.` : 'A quiet morning. Nothing cleared the bar.'}</p>
+        <div class="home__actions">
+          <a class="btn btn--brand" href="#/read/${esc(ed.id)}?mode=${m}">Read today’s newspaper →</a>
+          <button class="btn btn--ghost" type="button" data-listen>▶ Listen · ${Math.max(1, Math.round(ed.audio[m].seconds / 60))} min</button>
+        </div>
+        <p class="home__meta">Prepared ${hm(ed.generatedAt)} · ${ed.stats.sourcesReviewed} sources reviewed · quality-checked</p>
+        <div class="home__more">
+          <button class="textlink" type="button" data-change>Change today’s paper</button>
+          ${override ? `<button class="textlink" type="button" data-reset-today>Back to my usual topics</button>` : ''}
+          <a class="textlink" href="#/compare">Compare the four prototype editions</a>
+        </div>
       </div>
-      <p class="home__meta">Prepared ${hm(ed.generatedAt)} · ${ed.stats.sourcesReviewed} sources reviewed · ${Math.max(1, Math.round(ed.audio[m].seconds / 60))}-minute audio</p>
-      <div class="home__more">
-        <button class="textlink" type="button" data-change>Change today’s paper</button>
-        ${override ? `<button class="textlink" type="button" data-reset-today>Back to my usual topics</button>` : ''}
-        <a class="textlink" href="#/compare">Compare the four prototype editions</a>
-      </div>
+      ${n ? `<aside class="peek" aria-label="Today at a glance">
+        <div class="peek__head"><span>Today at a glance</span><span class="pill">${minutes} min</span></div>
+        <ol class="peek__list">${peek.map((s, i) => `<li class="tone-${toneFor(s.topicId)}"><span class="peek__n">${i + 1}</span><span>${esc(s.copy[m].summaryLine || s.copy[m].headline)}</span></li>`).join('')}</ol>
+        <div class="peek__foot"><div><b>${ed.stats.sourcesReviewed}</b><span>sources</span></div><div><b>${ed.stats.considered}</b><span>developments</span></div><div><b>${n}</b><span>stories</span></div><div><b>${minutes}</b><span>minutes</span></div></div>
+      </aside>` : ''}
     </div></section>`,
     { title: 'Today' },
   );
@@ -334,9 +373,10 @@ async function viewRead([id = 'today'], query) {
         <span class="readbar__note">Same edition, ${mode === 'social' ? 'friendlier voice' : 'professional voice'}.</span>
       </div>
       <div class="readbar__right">
-        <button class="link" type="button" data-listen>Listen</button>
-        <a href="/api/editions/${esc(ed.id)}/pdf?mode=${mode}" target="_blank" rel="noopener">PDF</a>
-        ${isDaily ? '<button class="link" type="button" data-change>Change today</button>' : ''}
+        <button class="tool" type="button" data-listen>▶ Listen</button>
+        <a class="tool" href="/api/editions/${esc(ed.id)}/pdf?mode=${mode}" target="_blank" rel="noopener">PDF</a>
+        <a class="tool" href="#/edition/${esc(ed.id)}?mode=${mode}">How it was made</a>
+        ${isDaily ? '<button class="tool" type="button" data-change>Change today</button>' : ''}
       </div>
     </div>
     ${renderNewspaper(ed, mode)}`,
@@ -400,7 +440,7 @@ async function viewSource([edId, sourceId], query) {
 
 // ── ONBOARDING ──────────────────────────────────────────────────────────────
 
-const ob = { step: 1, topics: [], budget: 10, mode: 'business', time: '06:00', method: 'web' };
+const ob = { step: 1, topics: [], budget: 10, mode: 'business', time: '06:00', channels: ['push'], whatsapp: '' };
 const SUGGEST = ['AI', 'Technology', 'Farming', 'Food', 'South Africa', 'Business', 'Renewable energy', 'Finance', 'Climate', 'Manufacturing', 'Football', 'Photography', 'Cars'];
 
 async function viewWelcome(_, query) {
@@ -409,14 +449,14 @@ async function viewWelcome(_, query) {
   ob.step = Number(query.get('step')) || 1;
   if (ob.step > 1 && !ob.topics.length) ob.step = 1;
   const total = 5;
-  const progress = `<div class="ob__progress"><span>${ob.step < total ? `Step ${ob.step} of ${total - 1}` : 'Your first edition'}</span><div class="ob__bar"><span style="width:${(ob.step / total) * 100}%"></span></div></div>`;
+  const progress = `<div class="ob__progress"><span>${ob.step < total ? `Step ${ob.step} of ${total - 1}` : 'Your first edition'}</span><div class="ob__bar">${Array.from({ length: total }, (_, i) => `<span class="${i < ob.step ? 'is-on' : ''}"></span>`).join('')}</div></div>`;
   const nav = (back, next, nextLabel = 'Continue') =>
     `<div class="ob__nav">${back ? `<a class="textlink" href="#/welcome?step=${ob.step - 1}">Back</a>` : `<button class="textlink" type="button" data-skip>Skip — show me a sample edition</button>`}${next ? `<button class="btn" type="button" data-next>${nextLabel}</button>` : '<span></span>'}</div>`;
 
   if (ob.step === 1) {
     render(
       `<div class="ob">${progress}<div class="ob__body">
-        <h1 class="ob__q">What do you want to know about?</h1>
+        <h1 class="ob__q">What do you want to <em>know about?</em></h1>
         <p class="ob__hint">Write it the way you’d say it. Broad is fine — we’ll work out the details.</p>
         <form class="ob__input" data-form><input data-input placeholder="e.g. artificial intelligence, farming, South Africa" autocomplete="off" aria-label="Add a topic"><button type="submit">Add</button></form>
         <div class="ob__chosen"><div class="chips" data-chosen></div><p class="ob__expansion" data-expansion></p></div>
@@ -470,7 +510,7 @@ async function viewWelcome(_, query) {
     ];
     render(
       `<div class="ob">${progress}<div class="ob__body">
-        <h1 class="ob__q">How much time do you have?</h1>
+        <h1 class="ob__q">How much <em>time</em> do you have?</h1>
         <p class="ob__hint">This is a reading budget, not a story count. If today only needs four minutes, you get four.</p>
         <div class="choices">${opts.map(([m, t, d]) => `<button class="choice" type="button" data-budget="${m}" aria-pressed="${ob.budget === m}"><span class="choice__big">${m}<small>min</small></span><span><p class="choice__title">${t}</p><p class="choice__desc">${d}</p></span></button>`).join('')}</div>
       </div>${nav(true, true)}</div>`,
@@ -489,7 +529,7 @@ async function viewWelcome(_, query) {
   if (ob.step === 3) {
     render(
       `<div class="ob">${progress}<div class="ob__body">
-        <h1 class="ob__q">How do you want it presented?</h1>
+        <h1 class="ob__q">How should it <em>sound?</em></h1>
         <p class="ob__hint">The same facts, sources and caveats either way. Only the voice changes — and you can switch any morning.</p>
         <div class="modes">
           <button class="mode-card" type="button" data-mode="business" aria-pressed="${ob.mode === 'business'}">
@@ -497,8 +537,8 @@ async function viewWelcome(_, query) {
             <div class="mode-card__label"><b>Business</b><span>Concise, precise and calm. For people who need the facts fast.</span></div>
           </button>
           <button class="mode-card" type="button" data-mode="social" aria-pressed="${ob.mode === 'social'}">
-            <div class="mode-card__sample mode-card__sample--s"><span class="k">The big one today</span><h4>A dry September just shrank the wheat harvest</h4><p>And yes — eventually, that’s about the price of your bread.</p></div>
-            <div class="mode-card__label"><b>Social</b><span>A friend catching you up. Warmer, more colourful, just as accurate.</span></div>
+            <div class="mode-card__sample mode-card__sample--s"><span class="k">The big one today</span><h4>A dry September just shrank the wheat harvest</h4><p>Bakers say it could reach your bread. Slowly.</p></div>
+            <div class="mode-card__label"><b>Social</b><span>Simple words, big energy, like a friend with the tea. Just as accurate.</span></div>
           </button>
         </div>
       </div>${nav(true, true)}</div>`,
@@ -516,28 +556,34 @@ async function viewWelcome(_, query) {
   }
 
   if (ob.step === 4) {
+    const sample = await api.sampleHooks(ob.mode);
     render(
       `<div class="ob">${progress}<div class="ob__body">
-        <h1 class="ob__q">When should your newspaper arrive?</h1>
-        <p class="ob__hint">We’ll have it ready before you sit down.</p>
-        <div class="fields">
-          <div class="field"><label for="ob-time">Ready by</label><input id="ob-time" type="time" value="${esc(ob.time)}" data-time></div>
-          <div class="field"><span class="field__label">Deliver to</span><div class="seg" role="group">${[
-            ['web', 'Here'],
-            ['email', 'Email'],
-            ['pdf', 'Email + PDF'],
-          ]
-            .map(([v, l]) => `<button type="button" data-method="${v}" aria-pressed="${ob.method === v}">${l}</button>`)
-            .join('')}</div></div>
-        </div>
+        <h1 class="ob__q">When should it <em>arrive?</em></h1>
+        <p class="ob__hint">Pick a time, and how you’d like a nudge when it’s ready. This is what your morning ping looks like.</p>
+        <div class="fields" style="max-width:none;margin-bottom:28px"><div class="field"><label for="ob-time">Ready by</label><input id="ob-time" type="time" value="${esc(ob.time)}" data-time></div></div>
+        <div class="channel-pick">${CHANNELS.map(([v, t, d]) => `<button type="button" class="channel" data-chan="${v}" aria-pressed="${ob.channels.includes(v)}"><b>${t}</b><span>${d}</span></button>`).join('')}</div>
+        <div data-ping></div>
+        <div class="field" data-wa hidden style="margin-top:22px"><label for="ob-wa">Your WhatsApp number</label><input id="ob-wa" type="tel" inputmode="tel" placeholder="+27 82 123 4567" value="${esc(ob.whatsapp)}" data-wa-input></div>
       </div>${nav(true, true, 'Make my first newspaper')}</div>`,
       { title: 'Welcome' },
     );
-    $app.querySelector('[data-time]').addEventListener('change', (e) => (ob.time = e.target.value || '06:00'));
-    $app.querySelectorAll('[data-method]').forEach((b) =>
+    const $ping = $app.querySelector('[data-ping]');
+    const paint = () => {
+      $ping.innerHTML = ob.channels.length
+        ? pingPreview({ ...sample, editionId: null }, { channels: CHANNELS.map((c) => c[0]).filter((c) => ob.channels.includes(c)), time: ob.time }) + `<p class="ping-note"><b>Sample preview.</b> Every ping teases a real story from your edition, and the edition answers it. A quiet morning gets a quiet ping.</p>`
+        : `<p class="ping-note">No pings: your newspaper will simply be waiting here at ${esc(ob.time)}.</p>`;
+      $app.querySelector('[data-wa]').hidden = !ob.channels.includes('whatsapp');
+    };
+    paint();
+    $app.querySelector('[data-time]').addEventListener('change', (e) => ((ob.time = e.target.value || '06:00'), paint()));
+    $app.querySelector('[data-wa-input]').addEventListener('input', (e) => (ob.whatsapp = e.target.value));
+    $app.querySelectorAll('[data-chan]').forEach((b) =>
       b.addEventListener('click', () => {
-        ob.method = b.dataset.method;
-        $app.querySelectorAll('[data-method]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+        const c = b.dataset.chan;
+        ob.channels = ob.channels.includes(c) ? ob.channels.filter((x) => x !== c) : [...ob.channels, c];
+        b.setAttribute('aria-pressed', ob.channels.includes(c));
+        paint();
       }),
     );
     $app.querySelector('[data-next]').addEventListener('click', () => go('#/welcome?step=5'));
@@ -550,6 +596,7 @@ async function viewWelcome(_, query) {
       ${markSvg({ size: 64, animate: true })}
       <h2 class="gen__title">Setting your first edition.</h2>
       <p class="gen__sub">${topicLine(ob.topics)}</p>
+      <div class="gen__bar"><span data-bar></span></div>
       <ol class="stages">${me.stages.map((s) => `<li data-stage="${s.key}"><span class="stages__n">${s.number}</span><span>${esc(s.label)}</span><span class="stages__note"></span></li>`).join('')}</ol>
     </div><div></div></div>`,
     { title: 'Your first edition' },
@@ -559,7 +606,7 @@ async function viewWelcome(_, query) {
     topics: ob.topics.map((t) => t.id),
     budgetMinutes: ob.budget,
     mode: ob.mode,
-    delivery: { time: ob.time, method: ob.method },
+    delivery: { time: ob.time, channels: ob.channels, whatsapp: ob.whatsapp },
   });
   api.forget();
   await refreshMe();
@@ -572,6 +619,7 @@ async function viewWelcome(_, query) {
       li.classList.add('is-done', 'is-now');
       li.querySelector('.stages__note').textContent = entry.note || '';
     }
+    $app.querySelector('[data-bar]').style.width = `${Math.round(((i + 1) / ed.pipeline.length) * 100)}%`;
     await new Promise((r) => setTimeout(r, i < 3 ? 160 : 230));
   }
   await new Promise((r) => setTimeout(r, 500));
@@ -651,22 +699,41 @@ async function viewSettings() {
   setNav('settings');
   setTone('business');
   const p = me.profile;
+  const sample = await api.sampleHooks(p.mode);
+  const chans = p.delivery.channels || [];
   const seg = (key, options, value) =>
     `<div class="seg" role="group">${options.map(([v, l]) => `<button type="button" data-set="${key}" data-value="${esc(v)}" aria-pressed="${String(value) === String(v)}">${esc(l)}</button>`).join('')}</div>`;
   const row = (title, note, control) => `<div class="setting"><div class="setting__label"><h3>${title}</h3><p>${note}</p></div><div>${control}</div></div>`;
   render(
     `<div class="page">
       <p class="eyebrow">Settings</p>
-      <h1>Let the editor decide.</h1>
+      <h1>Let the editor <em class="grad-text" style="font-family:var(--accent-serif);font-weight:400">decide.</em></h1>
       <p class="lede">A few choices are yours. The rest — what matters, how much, in what order — is the editor’s job.</p>
-      ${row('Reading time', 'A budget, not a quota.', seg('budgetMinutes', [[5, '5 min'], [10, '10 min'], [20, '20 min']], p.budgetMinutes))}
-      ${row('Presentation', 'Switching never re-researches your edition.', seg('mode', [['business', 'Business'], ['social', 'Social']], p.mode))}
-      ${row('Delivery time', 'Your edition is prepared by this time each morning.', `<div class="field"><input type="time" value="${esc(p.delivery.time)}" data-time></div>`)}
-      ${row('Delivery', 'Where your newspaper arrives.', seg('delivery.method', [['web', 'Here'], ['email', 'Email'], ['pdf', 'Email + PDF']], p.delivery.method))}
-      ${row('Discovery', 'How often the editor brings in something adjacent to your interests.', seg('discovery', [['off', 'Never'], ['occasionally', 'Now and then'], ['often', 'Often']], p.discovery))}
-      ${row('PDF', 'Paper size for printing.', seg('pdf.paper', [['A4', 'A4'], ['Letter', 'Letter']], p.pdf?.paper || 'A4'))}
-      ${row('Audio summary', 'A short spoken version of each edition.', seg('audio.enabled', [[true, 'On'], [false, 'Off']], p.audio?.enabled !== false))}
-      <div class="setting"><div class="setting__label"><h3>Start over</h3><p>Replay the welcome and choose your topics again.</p></div><div><button class="textlink" type="button" data-reset>Start over</button></div></div>
+      <section class="panel">
+        ${row('Reading time', 'A budget, not a quota.', seg('budgetMinutes', [[5, '5 min'], [10, '10 min'], [20, '20 min']], p.budgetMinutes))}
+        ${row('Voice', 'Business or Social. Switching never re-researches your edition.', seg('mode', [['business', 'Business'], ['social', 'Social']], p.mode))}
+        ${row('Discovery', 'How often the editor brings in something adjacent to your interests.', seg('discovery', [['off', 'Never'], ['occasionally', 'Now and then'], ['often', 'Often']], p.discovery))}
+        ${row('PDF', 'Paper size for printing.', seg('pdf.paper', [['A4', 'A4'], ['Letter', 'Letter']], p.pdf?.paper || 'A4'))}
+        ${row('Audio summary', 'A short spoken version of each edition.', seg('audio.enabled', [[true, 'On'], [false, 'Off']], p.audio?.enabled !== false))}
+      </section>
+
+      <h2 class="block__h" style="margin-top:44px">Your morning ping</h2>
+      <p class="block__note">When your edition is ready, we nudge you with a teaser of a real story. Pick where. You can also just open the paper.</p>
+      <section class="panel">
+        ${row('Ready by', 'Your edition is prepared by this time each morning.', `<div class="field"><input type="time" value="${esc(p.delivery.time)}" data-time></div>`)}
+        ${row('Send a ping to', 'Choose any combination.', `<div class="seg" role="group" data-chans>${CHANNELS.map(([v, t]) => `<button type="button" data-chan="${v}" aria-pressed="${chans.includes(v)}">${t}</button>`).join('')}</div>`)}
+        <div class="setting" data-wa ${chans.includes('whatsapp') ? '' : 'hidden'}><div class="setting__label"><h3>WhatsApp number</h3><p>Only used to message you your edition.</p></div><div class="field"><input type="tel" inputmode="tel" placeholder="+27 82 123 4567" value="${esc(p.delivery.whatsapp || '')}" data-wa-input></div></div>
+      </section>
+      <div data-ping>${pingPreview(sample, { channels: ['push', 'whatsapp', 'email'], time: p.delivery.time })}</div>
+      <p class="ping-note"><b>Sample preview in your ${p.mode} voice.</b> Every ping teases a real story, and the edition answers it. No fake urgency, no numbers we can’t source. A quiet morning gets a quiet ping.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px">
+        <button class="btn btn--small" type="button" data-test-push>Send me a test notification</button>
+        <button class="btn btn--small btn--ghost" type="button" data-deliver>Prepare today’s ping files</button>
+      </div>
+
+      <section class="panel" style="margin-top:44px">
+        <div class="setting"><div class="setting__label"><h3>Start over</h3><p>Replay the welcome and choose your topics again.</p></div><div><button class="textlink" type="button" data-reset>Start over</button></div></div>
+      </section>
     </div>`,
     { title: 'Settings' },
   );
@@ -678,6 +745,7 @@ async function viewSettings() {
     api.forget();
     await refreshMe();
     toast(a === 'mode' ? 'Saved. Same edition, new voice.' : a === 'budgetMinutes' ? 'Saved. Today’s edition will be re-edited to fit.' : 'Saved.');
+    if (a === 'mode' && location.hash.startsWith('#/settings')) viewSettings();
   };
   $app.querySelectorAll('[data-set]').forEach((btn) =>
     btn.addEventListener('click', () => {
@@ -685,7 +753,36 @@ async function viewSettings() {
       patch(btn.dataset.set, btn.dataset.value);
     }),
   );
-  $app.querySelector('[data-time]').addEventListener('change', (e) => patch('delivery.time', e.target.value));
+  const saveChannels = async () => {
+    const on = [...$app.querySelectorAll('[data-chan][aria-pressed="true"]')].map((b) => b.dataset.chan);
+    await api.saveProfile({ delivery: { channels: on } });
+    await refreshMe();
+    $app.querySelector('[data-wa]').hidden = !on.includes('whatsapp');
+    toast(on.length ? 'Saved. Your morning ping is set.' : 'Saved. No pings — the paper will wait for you.');
+  };
+  $app.querySelectorAll('[data-chan]').forEach((b) =>
+    b.addEventListener('click', () => {
+      b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
+      saveChannels();
+    }),
+  );
+  $app.querySelector('[data-time]').addEventListener('change', async (e) => {
+    await api.saveProfile({ delivery: { time: e.target.value } });
+    await refreshMe();
+    toast('Saved.');
+  });
+  $app.querySelector('[data-wa-input]').addEventListener('change', async (e) => {
+    await api.saveProfile({ delivery: { whatsapp: e.target.value } });
+    await refreshMe();
+    toast('Saved.');
+  });
+  $app.querySelector('[data-test-push]').addEventListener('click', () => testPush(sample.hooks));
+  $app.querySelector('[data-deliver]').addEventListener('click', async () => {
+    const ed = await api.today();
+    const { delivered } = await api.deliver(ed.id);
+    const names = Object.keys(delivered);
+    toast(names.length ? `Prepared ${names.join(', ')} → data/outbox` : 'Pick a channel first.');
+  });
   $app.querySelector('[data-reset]').addEventListener('click', async () => {
     await api.reset();
     api.forget();
@@ -707,15 +804,15 @@ async function viewDownload() {
   render(
     `<div class="page">
       <p class="eyebrow">Download</p>
-      <h1>Take it with you.</h1>
-      <p class="lede">The same edition as a printable newspaper, a short listen, or a note in your inbox.</p>
+      <h1>Take it <em class="grad-text" style="font-family:var(--accent-serif);font-weight:400">with you.</em></h1>
+      <p class="lede">The same edition as a printable newspaper, a short listen, or a ping in your pocket.</p>
       <div class="dl-grid">
-        <div class="dl"><h3>Newspaper PDF · Business</h3><p>Set for paper. ${ed.stats.readingMinutes.business}-minute read.</p><a class="btn btn--small" href="/api/editions/${esc(ed.id)}/pdf?mode=business" target="_blank" rel="noopener">Open PDF</a> <a class="textlink" style="margin-left:12px" href="/api/editions/${esc(ed.id)}/pdf?mode=business&download=1">Save</a></div>
-        <div class="dl"><h3>Newspaper PDF · Social</h3><p>The friendly edition, printable. ${ed.stats.readingMinutes.social}-minute read.</p><a class="btn btn--small" href="/api/editions/${esc(ed.id)}/pdf?mode=social" target="_blank" rel="noopener">Open PDF</a> <a class="textlink" style="margin-left:12px" href="/api/editions/${esc(ed.id)}/pdf?mode=social&download=1">Save</a></div>
-        <div class="dl"><h3>Audio summary</h3><p>About ${Math.max(1, Math.round(ed.audio[m].seconds / 60))} minutes. For the drive, the walk or the kitchen.</p><button class="btn btn--small btn--ghost" type="button" data-listen>Listen</button></div>
-        <div class="dl"><h3>Email</h3><p>A short summary with links to the paper and the PDF.</p><button class="btn btn--small btn--ghost" type="button" data-email>Send to my inbox</button></div>
+        <div class="dl"><h3>Newspaper PDF · Business</h3><p>Set for paper. ${ed.stats.readingMinutes.business}-minute read.</p><div class="dl__actions"><a class="btn btn--small" href="/api/editions/${esc(ed.id)}/pdf?mode=business" target="_blank" rel="noopener">Open PDF</a><a class="textlink" href="/api/editions/${esc(ed.id)}/pdf?mode=business&download=1">Save</a></div></div>
+        <div class="dl"><h3>Newspaper PDF · Social</h3><p>The friendly edition, printable. ${ed.stats.readingMinutes.social}-minute read.</p><div class="dl__actions"><a class="btn btn--small" href="/api/editions/${esc(ed.id)}/pdf?mode=social" target="_blank" rel="noopener">Open PDF</a><a class="textlink" href="/api/editions/${esc(ed.id)}/pdf?mode=social&download=1">Save</a></div></div>
+        <div class="dl"><h3>Audio summary</h3><p>About ${plural(Math.max(1, Math.round(ed.audio[m].seconds / 60)), 'minute')}. For the drive, the walk or the kitchen.</p><div class="dl__actions"><button class="btn btn--small btn--ghost" type="button" data-listen>▶ Listen</button></div></div>
+        <div class="dl"><h3>Morning ping</h3><p>Push, WhatsApp and email teasers for today’s edition, in your ${m} voice.</p><div class="dl__actions"><button class="btn btn--small btn--ghost" type="button" data-deliver>Prepare today’s ping</button><a class="textlink" href="/email/${esc(ed.id)}?mode=${m}" target="_blank" rel="noopener">Preview the email</a></div></div>
       </div>
-      <section class="block" style="margin-top:34px">
+      <section class="block" style="margin-top:44px">
         <h2 class="block__h">Past editions</h2>
         <p class="block__note">Every edition is stored as it was delivered, and can be reopened or inspected.</p>
         <ul class="archive">${editions
@@ -728,9 +825,10 @@ async function viewDownload() {
     { title: 'Download' },
   );
   $app.querySelector('[data-listen]').addEventListener('click', () => openListen(ed, m));
-  $app.querySelector('[data-email]').addEventListener('click', async () => {
-    const { file } = await api.email(ed.id);
-    toast(`Prepared for delivery: ${file}`);
+  $app.querySelector('[data-deliver]').addEventListener('click', async () => {
+    const chans = me.profile.delivery.channels?.length ? undefined : ['push', 'email', 'whatsapp'];
+    const { delivered } = await api.deliver(ed.id, chans);
+    toast(`Prepared ${Object.keys(delivered).join(', ')} → data/outbox`);
   });
 }
 
@@ -802,7 +900,7 @@ async function viewCompare(_, query) {
               ([e, md, label]) => `<div class="cmp-pair__col"><div class="cmp-pair__label"><span>${esc(label)}</span><a href="#/read/${esc(e.id)}?mode=${md}">Open full page →</a></div><iframe title="${esc(label)}" src="/#/embed/${esc(e.id)}?mode=${md}" loading="lazy"></iframe></div>`,
             )
             .join('')}</div>`
-        : `<div class="readbar"><div class="readbar__left"><span class="readbar__note">Preview ${set === 'single' ? (mode === 'business' ? 1 : 3) : mode === 'business' ? 2 : 4} of 4</span></div><div class="readbar__right"><a href="/api/editions/${esc(ed.id)}/pdf?mode=${mode}" target="_blank" rel="noopener">PDF</a><a href="#/edition/${esc(ed.id)}?mode=${mode}">How it was made</a></div></div>${renderNewspaper(ed, mode)}`
+        : `<div class="readbar"><div class="readbar__left"><span class="readbar__note">Preview ${set === 'single' ? (mode === 'business' ? 1 : 3) : mode === 'business' ? 2 : 4} of 4</span></div><div class="readbar__right"><a class="tool" href="/api/editions/${esc(ed.id)}/pdf?mode=${mode}" target="_blank" rel="noopener">PDF</a><a class="tool" href="#/edition/${esc(ed.id)}?mode=${mode}">How it was made</a></div></div>${renderNewspaper(ed, mode)}`
     }`,
     { title: 'Prototype editions' },
   );
@@ -837,6 +935,10 @@ async function viewEdition([id], query) {
 
       <section class="block"><h2 class="block__h">The pipeline</h2><p class="block__note">One research pass. Business, Social, web, PDF and audio all render from the result.</p>
         <ol class="pipeline">${ed.pipeline.map((s) => `<li><b>${s.number}</b><span>${esc(s.label)}</span><span>${esc(s.note || '')}</span></li>`).join('')}</ol>
+      </section>
+
+      <section class="block"><h2 class="block__h">The morning ping</h2><p class="block__note">Built from this stored edition (pattern: <b>${esc(ed.hooks?.pattern || 'n/a')}</b>). Checked by the quality gate: it must tease a published story, use only sourced numbers, and carry no false urgency.</p>
+        ${ed.hooks ? pingPreview({ hooks: ed.hooks[mode], date: ed.editorialDate, mode, editionId: ed.id }, { time: me.profile.delivery.time }) : ''}
       </section>
 
       <section class="block"><h2 class="block__h">Editorial decisions</h2><p class="block__note">${ed.stats.considered} developments considered, ${ed.stats.published} published, ${ed.stats.held} held, ${ed.stats.rejected} rejected. Scores combine relevance, significance, freshness, source quality and corroboration.</p>

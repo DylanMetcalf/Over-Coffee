@@ -1,0 +1,84 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   OVER COFFEE — design tokens (v2, "modern")
+   One place for colour, type, radius and shadow. Every other stylesheet reads
+   from here, so changing the brand is a one-file edit.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* surfaces */
+  --bg: #ffffff;
+  --bg-soft: #f5f6fa;
+  --bg-sunk: #eceef4;
+  --ink: #0a0b10;
+  --ink-2: #3a3e4b;
+  --muted: #6a7082;
+  --faint: #9aa0b0;
+  --line: #e8eaf1;
+  --line-2: #d6dae4;
+
+  /* brand: "sunrise" */
+  --brand: #ff4d1f;
+  --brand-2: #ff2d55;
+  --brand-ink: #d63a0a; /* brand as text on white (AA) */
+  --brand-soft: #fff0ea;
+  --violet: #6b4eff;
+  --violet-soft: #efecff;
+  --grad: linear-gradient(135deg, #ff7a1a 0%, #ff2d55 100%);
+  --grad-ink: radial-gradient(120% 140% at 100% 0%, rgba(255, 77, 31, 0.55) 0%, rgba(255, 77, 31, 0) 55%), radial-gradient(90% 120% at 0% 100%, rgba(107, 78, 255, 0.45) 0%, rgba(107, 78, 255, 0) 60%), #0a0b10;
+
+  /* type */
+  --display: 'Bricolage Grotesque', 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sans: 'Geist', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --accent-serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+
+  /* shape */
+  --r-sm: 10px;
+  --r: 16px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --shadow-1: 0 1px 2px rgba(10, 11, 16, 0.04), 0 6px 20px rgba(10, 11, 16, 0.05);
+  --shadow-2: 0 2px 6px rgba(10, 11, 16, 0.05), 0 24px 60px rgba(10, 11, 16, 0.12);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* verification status */
+  --st-confirmed: #0f7a43;
+  --st-confirmed-bg: #e6f6ed;
+  --st-reported: #9a5b00;
+  --st-reported-bg: #fff3dc;
+  --st-interpreted: #3555a6;
+  --st-interpreted-bg: #e9eefb;
+  --st-emerging: #c2410c;
+  --st-emerging-bg: #ffeee3;
+  --st-uncertain: #c4162a;
+  --st-uncertain-bg: #ffe8eb;
+  --st-unsupported: #c4162a;
+
+  /* illustration palette (Business) */
+  --ill-bg: #f1f2f8;
+  --ill-paper: #ffffff;
+  --ill-ink: #0a0b10;
+  --ill-accent: #ff4d1f;
+  --ill-soft: #c9cdda;
+  --ill-pop: #6b4eff;
+
+  /* legacy aliases so older markup keeps working */
+  --paper: var(--bg);
+  --paper-2: var(--bg-soft);
+  --paper-3: var(--bg-sunk);
+  --hair: var(--line);
+  --accent: var(--brand);
+  --accent-2: var(--brand-ink);
+  --serif: var(--display);
+  --soft: var(--display);
+}
+
+/* topic tones — used as small accents in Business, generously in Social */
+.tone-violet { --tone: #6b4eff; --tint: #eeebff; --tone-ink: #3a24c4; }
+.tone-sky { --tone: #1f8cff; --tint: #e3f1ff; --tone-ink: #0b57a6; }
+.tone-amber { --tone: #ff8a1f; --tint: #fff0dc; --tone-ink: #a24c00; }
+.tone-rose { --tone: #ff3d7f; --tint: #ffe6ef; --tone-ink: #b3144f; }
+.tone-green { --tone: #12b76a; --tint: #def7ea; --tone-ink: #0a7a45; }
+.tone-teal { --tone: #0fb5b0; --tint: #dcf6f5; --tone-ink: #07716e; }
+.tone-yellow { --tone: #f5c400; --tint: #fff6cc; --tone-ink: #7a6000; }
+.tone-ink { --tone: #2b2f3c; --tint: #eceef4; --tone-ink: #0a0b10; }

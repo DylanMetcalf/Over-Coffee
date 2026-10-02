@@ -1,96 +1,140 @@
-/* Print / PDF — a genuine newspaper artifact. */
+/* ─────────────────────────────────────────────────────────────────────────
+   Print / PDF (v2) — a genuine newspaper artifact.
+   Front page is composed; everything after flows through two continuous
+   columns so pages fill and nothing ends half-empty.
+   ───────────────────────────────────────────────────────────────────────── */
 
 html, body.print-body { background: #fff; margin: 0; }
-.print-body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.print-body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 9.2pt; }
 .paper--print { max-width: none; padding: 0; background: #fff; }
-.paper--print.paper--business { --paper: #fff; }
-.paper--print .figure { padding: 8px 12px; }
-.paper--print .figure__value { font-size: 20pt; }
-.paper--print .figure__label, .paper--print .figure__delta { font-size: 6.8pt; }
-.paper--print .mast__bar { padding: 6px 10px; }
-.paper--print .sample-banner { margin-bottom: 8px; padding: 5px 10px; font-size: 9px; }
-.paper--print .sample-banner strong { font-size: 8.5px; }
+.paper--print.paper--social { background: #fffaf4; }
+.paper--print .sample-banner { margin-bottom: 8px; padding: 5px 10px; font-size: 7.5pt; border-radius: 6px; }
 
-/* masthead */
-.paper--print .mast { margin-bottom: 14px; }
-.paper--print .mast__title { font-size: 66pt; }
-.paper--print .mast__bar, .paper--print .mast__meta { font-size: 7.5pt; }
-.paper--print .mast__tag { font-size: 11pt; }
+/* ── Business: front page ── */
+.paper--print .mast { padding: 0 0 4mm; }
+.paper--print .lockup--xl .lockup__word { font-size: 24pt; }
+.paper--print .lockup--xl .oc-mark { width: 30px; height: 30px; }
+.paper--print .pill { padding: 5px 10px; font-size: 7.5pt; }
+.paper--print .mast__sub { margin-top: 4mm; }
+.paper--print .mast__tag { font-size: 17pt; }
+.paper--print .chip-s { padding: 4px 9px 4px 8px; font-size: 7.5pt; }
+.paper--print .mast__count { font-size: 6.5pt; }
+.paper--print .hero { gap: 9mm; padding: 5mm 0 5mm; }
+.paper--print .hero__headline { font-size: 32pt; margin: 3mm 0; }
+.paper--print .hero__dek { font-size: 10.5pt; margin-bottom: 4mm; }
+.paper--print .hero__meta { font-size: 6.5pt; }
+.paper--print .hero__visual { min-height: 68mm; }
+.paper--print .hero__stat { left: 3mm; right: 3mm; bottom: 3mm; padding: 3mm 4mm; border-radius: 4mm; }
+.paper--print .hero__stat-value { font-size: 22pt; }
+.paper--print .hero__stat-label, .paper--print .hero__stat-delta { font-size: 6.5pt; }
+.paper--print .figures { gap: 3mm; margin-bottom: 6mm; }
+.paper--print .figure { padding: 3.5mm 4mm 3mm; border-radius: 4mm; gap: 1.5mm; }
+.paper--print .figure__label { font-size: 6pt; min-height: 0; }
+.paper--print .figure__value { font-size: 19pt; }
+.paper--print .figure__value small { font-size: 6.5pt; }
+.paper--print .figure__delta { font-size: 6.5pt; }
+.paper--print .lead-body { gap: 9mm; margin-bottom: 6mm; }
+.paper--print .prose--lead p { font-size: 9.6pt; line-height: 1.55; }
+.paper--print .prose--lead p:first-child { font-size: 10.5pt; }
+.paper--print .prose p { font-size: 8.8pt; line-height: 1.5; margin-bottom: 0.7em; }
+.paper--print .why { padding: 3mm 3.5mm; border-radius: 3mm; }
+.paper--print .why p { font-size: 8.6pt; margin-top: 1.5mm; }
+.paper--print .label, .paper--print .h-label { font-size: 6.2pt; }
+.paper--print .brief { gap: 4mm; margin-bottom: 7mm; break-inside: avoid; }
+.paper--print .brief__list { padding: 5mm 6mm 2mm; border-radius: 5mm; }
+.paper--print .brief__list ol { column-gap: 8mm; margin-top: 3mm; }
+.paper--print .brief__list a { font-size: 8.4pt; grid-template-columns: 8mm 1fr; }
+.paper--print .brief__list li { margin-bottom: 2.6mm; }
+.paper--print .remember { padding: 5mm 6mm; border-radius: 5mm; min-height: 0; }
+.paper--print .remember p { font-size: 14pt; }
+.paper--print .more--print { font-size: 8pt; flex-wrap: nowrap; white-space: nowrap; }
+.paper--print .more__url { font-size: 6pt; white-space: normal; }
+.paper--print .also { font-size: 7pt; }
+.paper--print .card__foot { padding-top: 2.5mm; }
 
-/* type sizes for paper */
-.paper--print .lead__headline { font-size: 28pt; }
-.paper--print .dek { font-size: 11.5pt; }
-.paper--print .dek--lead { font-size: 13pt; }
-.paper--print .lead__cols p, .paper--print .story__body p { font-size: 9.6pt; line-height: 1.42; margin-bottom: 0.6em; }
-.paper--print .lead__art .ill { aspect-ratio: 16 / 5.4; }
-.paper--print .front { grid-template-columns: 2.15fr 1fr; gap: 0 20px; padding-bottom: 14px; }
-.paper--print .rail { padding-left: 16px; }
-.paper--print .brief-list a, .paper--print .index-list li { font-size: 9.5pt; }
-.paper--print .remember { font-size: 12.5pt; }
-.paper--print .rail__block { padding-bottom: 12px; margin-bottom: 12px; }
+/* ── Business: the flow ── */
+.paper--print .flow { columns: 2; column-gap: 9mm; }
+.paper--print .flow__head { display: flex; align-items: center; gap: 2.5mm; break-after: avoid; break-inside: avoid; margin: 0 0 3.5mm; padding-top: 2mm; font: 800 17pt/1 var(--display); letter-spacing: -0.05em; }
+.paper--print .flow__head span { font: 500 6.5pt/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-left: auto; }
+.paper--print .flow__head .sec__dot { width: 3mm; height: 3mm; }
+.paper--print .flow__quiet { margin: 0 0 5mm; font-size: 9pt; color: var(--ink-2); }
+.paper--print .flow .card { display: block; break-inside: auto; orphans: 4; widows: 4; border: 0; border-radius: 0; box-shadow: none; padding: 0 0 5mm; margin: 0 0 5mm; border-bottom: 0.25mm solid var(--line-2); background: transparent; }
+.paper--print .flow .card::before { display: none; }
+.paper--print .flow .card__text { display: block; }
+.paper--print .flow .card__headline { font-size: 14.5pt; margin: 2mm 0 2mm; letter-spacing: -0.04em; }
+.paper--print .flow .dek { font-size: 9.4pt; margin-bottom: 2.5mm; }
+.paper--print .flow .kicker { font-size: 6.2pt; }
+.paper--print .flow .status { font-size: 6.2pt; padding: 2px 6px 2px 5px; }
+.paper--print .flow .chart { padding: 3mm 4mm; margin: 2mm 0 3mm; border-radius: 3mm; }
+.paper--print .flow .chart__title { font-size: 5.8pt; margin-bottom: 1.5mm; }
+.paper--print .flow .chart svg { max-width: 62mm; }
+.paper--print .flow .chart__source { font-size: 6pt; }
+.paper--print .flow .why { margin-bottom: 2mm; }
 
-.paper--print .sec { padding-top: 14px; break-inside: auto; }
-.paper--print .sec__head { margin-bottom: 12px; break-after: avoid; }
-.paper--print .sec__title { font-size: 18pt; }
-.paper--print .sec__grid > * { padding: 0 14px 14px; }
-.paper--print .story { break-inside: avoid; }
-.paper--print .story__headline { font-size: 14pt; }
-.paper--print .story--feature .story__headline { font-size: 17pt; }
-.paper--print .story--feature .story__art .ill { aspect-ratio: 4 / 3; }
-.paper--print .kicker, .paper--print .status, .paper--print .label { font-size: 6.8pt; }
-.paper--print .chart svg { max-width: 260px; }
-.paper--print .colophon { padding-top: 18px; break-inside: avoid; }
-.paper--print .colophon__done { font-size: 14pt; }
-.paper--print .colophon__meta { font-size: 7.5pt; }
-
-/* social on paper */
-.paper--print.paper--social { --s-bg: #fff; padding: 0; }
-.paper--print .s-greet { font-size: 50pt; }
-.paper--print .s-mast__top { margin-bottom: 14px; }
-.paper--print .s-tldr { padding: 14px 18px; margin-bottom: 20px; }
-.paper--print .s-tldr__list li { font-size: 9.5pt; }
-.paper--print .s-story { break-inside: avoid; margin-bottom: 18px; padding-bottom: 18px; gap: 0 20px; }
-.paper--print .s-story--lead, .paper--print .s-story--full { grid-template-columns: 1fr 2fr; }
-.paper--print .s-art { position: static; }
-.paper--print .s-headline { font-size: 20pt; }
-.paper--print .s-story--lead .s-headline { font-size: 28pt; }
-.paper--print .s-body p, .paper--print .s-why p, .paper--print .s-dyk p { font-size: 9.8pt; line-height: 1.45; }
-.paper--print .s-dek { font-size: 11pt; }
-.paper--print .s-quote p { font-size: 13pt; }
-.paper--print .s-quiz { break-inside: avoid; }
-.paper--print .s-q__opt { font-size: 9pt; padding: 5px 9px; }
-.paper--print .s-quiz__answers { display: block; }
+/* ── Social ── */
+.paper--print.paper--social { padding: 6mm 6mm 0; }
+.paper--print .s-mast { padding: 0 0 5mm; }
+.paper--print .s-mast__top { margin-bottom: 5mm; }
+.paper--print .lockup--social .lockup__word { font-size: 18pt; }
+.paper--print .s-greet { font-size: 54pt; margin-bottom: 3mm; }
+.paper--print .s-sub { font-size: 10.5pt; }
+.paper--print .s-tldr { padding: 6mm 7mm 4mm; border-radius: 6mm; margin-bottom: 5mm; break-inside: avoid; }
+.paper--print .s-tldr__h { font-size: 20pt; margin-bottom: 4mm; }
+.paper--print .s-tldr__list { gap: 3mm 8mm; }
+.paper--print .s-tldr__list a { font-size: 8.8pt; grid-template-columns: 6.5mm 1fr; }
+.paper--print .s-num { width: 5mm; height: 5mm; font-size: 6.5pt; }
+.paper--print .s-card { padding: 5.5mm 6mm 4.5mm; border-radius: 6mm; }
+.paper--print .s-card--lead { display: block; padding: 6mm; margin-bottom: 5mm; break-inside: auto; }
+.paper--print .s-card--lead .s-card__art { margin-bottom: 5mm; }
+.paper--print .s-card--lead .s-card__body .prose { columns: 2; column-gap: 7mm; }
+.paper--print .s-card__art .art { min-height: 0; border-radius: 4.5mm; }
+.paper--print .s-headline { font-size: 19pt; }
+.paper--print .s-card--lead .s-headline { font-size: 27pt; }
+.paper--print .s-dek { font-size: 10pt; }
+.paper--print .s-short { font-size: 9.4pt; }
+.paper--print .s-card .prose p { font-size: 8.9pt; line-height: 1.52; }
+.paper--print .s-pill { font-size: 7.5pt; padding: 5px 9px; }
+.paper--print .s-meta { margin-bottom: 3mm; }
+.paper--print .s-why { padding: 3.5mm 4.5mm 1.5mm; border-radius: 4mm; }
+.paper--print .s-why b { font-size: 13pt; }
+.paper--print .s-why p { font-size: 8.8pt; }
+.paper--print .s-quote { padding: 3.5mm 4.5mm; border-radius: 4mm 4mm 4mm 1.5mm; }
+.paper--print .s-quote p { font-size: 11.5pt; }
+.paper--print .s-dyk { padding: 3mm 4mm 1mm; }
+.paper--print .s-dyk p { font-size: 8.6pt; }
+.paper--print .s-card .chart { padding: 3mm 4mm; margin: 2mm 0 3mm; border-radius: 3mm; }
+.paper--print .s-card .chart svg { max-width: 62mm; }
+.paper--print .paper--social .flow, .paper--print.paper--social .flow { columns: 2; column-gap: 6mm; }
+.paper--print.paper--social .flow .s-card { break-inside: auto; orphans: 4; widows: 4; margin-bottom: 5mm; display: block; }
+.paper--print.paper--social .flow .s-card__body { display: block; }
+.paper--print .s-quiz { padding: 7mm 8mm 5mm; border-radius: 6mm; margin-top: 4mm; break-inside: avoid; }
+.paper--print .s-quiz__h { font-size: 24pt; }
+.paper--print .s-quiz__sub { font-size: 9pt; margin-bottom: 4mm; }
+.paper--print .s-q__text { font-size: 9.6pt; margin-bottom: 2mm; }
+.paper--print .s-q__opt { font-size: 8.2pt; padding: 6px 10px 6px 8px; box-shadow: none; }
+.paper--print .s-quiz__answers { display: block; font-size: 6.5pt; }
 .paper--print .s-q__result { display: none; }
+.paper--print .s-quiz__list { gap: 4mm; }
+.paper--print .s-remember { padding: 10mm 0 2mm; break-inside: avoid; }
+.paper--print .s-remember p { font-size: 28pt; }
+.paper--print .s-quietnote { break-inside: avoid; }
+
+/* ── shared ── */
+.paper--print .colophon { padding: 9mm 0 0; margin-top: 4mm; break-inside: avoid; }
+.paper--print .colophon__done { font-size: 17pt; }
+.paper--print .colophon__meta { font-size: 6.2pt; }
+.paper--print .colophon .oc-mark { width: 38px; height: 38px; }
+.paper--print .jump { display: none; }
+.paper--print .card, .paper--print .s-card { box-shadow: none; }
+.paper--print .card__fill, .paper--print .s-fill { display: none; }
+.paper--print .s-card__art .art { position: relative; top: auto; height: 58mm; }
+.paper--print .figure, .paper--print .hero__stat { box-shadow: none; }
 
 @media print {
   a { color: inherit; }
 }
 
-/* Paper is finite too: only the lead carries an illustration; charts stay, because they carry facts. */
-.paper--print .story { break-inside: auto; }
-.paper--print .story--standard, .paper--print .story--brief { break-inside: avoid; }
-.paper--print .story--feature { display: flex; flex-direction: column; }
-.paper--print .story--feature .story__text { order: 1; }
-.paper--print .story--feature .story__art { order: 2; }
-.paper--print .story--feature .story__art .art { display: none; }
-.paper--print .story--feature .story__body { column-count: 2; column-gap: 16px; column-rule: 1px solid var(--hair); }
-.paper--print .story--feature:only-child { display: flex; }
-.paper--print .chart { padding: 6px 0; margin: 4px 0 8px; }
-.paper--print .chart__title { font-size: 7pt; margin-bottom: 4px; }
-.paper--print .chart__source { font-size: 6.5pt; }
-.paper--print .more--print { white-space: nowrap; flex-wrap: nowrap; }
-.paper--print .more__url { white-space: normal; }
-.paper--print .also { font-size: 7.5pt; }
-.paper--print .lead__cols > p:first-child::first-letter { font-size: 3.6em; }
-.paper--print .sec--quiet .quiet { font-size: 10pt; }
-
-/* Social on paper: art only for the lead */
-.paper--print .s-story--full:not(.s-story--lead) { grid-template-columns: 1fr; }
-.paper--print .s-story--full:not(.s-story--lead) .s-art { display: none; }
-.paper--print .s-story--standard, .paper--print .s-story--brief { grid-template-columns: 70px 1fr; gap: 0 16px; }
-.paper--print .s-story--standard::before, .paper--print .s-story--brief::before { font-size: 48px; }
-.paper--print .s-story { break-inside: auto; }
-.paper--print .s-why, .paper--print .s-quote, .paper--print .s-dyk, .paper--print .chart { break-inside: avoid; }
-.paper--print .s-art .ill { aspect-ratio: 3 / 4; }
-.paper--print.paper--social .more { font-size: 10pt; }
-.paper--print.paper--social .more__url { font-size: 8pt; }
+.paper--print .s-why, .paper--print .s-quote, .paper--print .s-dyk, .paper--print .why, .paper--print .chart { break-inside: avoid; }
+.paper--print .s-mast, .paper--print .mast { break-after: avoid; }
+.paper--print .colophon { padding-top: 6mm; margin-top: 3mm; gap: 6px; }
+.paper--print .colophon .oc-mark { width: 30px; height: 30px; }

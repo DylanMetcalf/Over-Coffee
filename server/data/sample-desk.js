@@ -1,5 +1,7 @@
 // DESIGN PROTOTYPE — SAMPLE DESK
 //
+// Social copy and notification hooks live in sample-social.js and sample-hooks.js.
+//
 // In a live deployment, three model-backed steps produce this material from
 // the research snapshot: ASSESS (editorial signals), EXTRACT (claims with the
 // sources that support them) and WRITE (copy in both presentation voices).
@@ -39,22 +41,6 @@ export const SAMPLE_DESK = {
       next: 'Analysts expect rivals to respond on price within weeks. Independent benchmark results should follow.',
       summaryLine: 'Kestrel Labs cut its API price 60% with Kestrel 4 and released a smaller open-weights model.',
       remember: 'Capable AI is getting cheaper faster than it is getting smarter. Budgets, not breakthroughs, will set the pace of adoption.',
-    },
-    social: {
-      kicker: 'Okay, here’s what happened',
-      headline: 'AI just got a lot cheaper',
-      dek: 'Kestrel Labs launched Kestrel 4 — and cut its price by 60%.',
-      body: [
-        'Kestrel Labs released its new model, Kestrel 4, on Thursday. The headline isn’t how clever it is. It’s the price: $1.20 per million input tokens, 60% less than the last version.',
-        'They also gave away a smaller sibling, Kestrel 4 Mini, with open weights. Translation: anyone can download it and run it themselves. Reviewers got it going on a single 48GB graphics card.',
-        'Kestrel says the new model solves 71% of its coding test, up from 54%. Small asterisk: that’s Kestrel’s own test, and nobody outside has checked it yet.',
-      ],
-      why: 'When AI gets cheaper, the projects companies said “not yet” to suddenly add up. Expect the other labs to answer on price soon.',
-      shortVersion: 'Cheaper, a bit smarter, and a free mini version you can run yourself.',
-      didYouKnow: 'A “token” is roughly three-quarters of an English word, so a million tokens is about 750,000 words.',
-      summaryLine: 'Kestrel 4 is out, it’s 60% cheaper, and there’s a free mini version.',
-      remember: 'AI is getting cheaper faster than it’s getting smarter — and that’s what will actually change how people use it.',
-      quiz: { q: 'How much did Kestrel Labs cut its API price?', options: ['20%', '60%', '90%'], answer: 1 },
     },
     depth: {
       timeline: [
@@ -114,19 +100,6 @@ export const SAMPLE_DESK = {
       next: 'Watch whether other suppliers report the same easing, and whether accelerator prices begin to soften next year, as some analysts expect.',
       summaryLine: 'Varda says waits for AI chips are down to nine weeks from 26 — the shortage is easing.',
     },
-    social: {
-      kicker: 'Supply-chain news, but it matters',
-      headline: 'The AI chip queue is finally shrinking',
-      dek: 'Waiting for AI chips used to take half a year. Now it’s about nine weeks.',
-      body: [
-        'Varda Semiconductor, which makes the chips AI runs on, says the wait for its accelerators is down to nine weeks. A year ago it was 26.',
-        'Business is still booming: data-centre revenue jumped 41% to $8.4bn. Investors liked it — shares rose 6% after hours.',
-      ],
-      why: 'For two years, getting your hands on chips decided who could play in AI. Shorter queues give smaller companies a real shot.',
-      shortVersion: 'Chips are easier to get. Good news for everyone who isn’t a tech giant.',
-      summaryLine: 'The wait for AI chips is down from 26 weeks to nine.',
-      quiz: { q: 'How long is the wait for Varda’s AI chips now?', options: ['Nine weeks', 'Six months', 'A year'], answer: 0 },
-    },
     depth: {
       timeline: [
         { when: '1 Oct · 21:00 UTC', what: 'Varda Semiconductor publishes quarterly results.' },
@@ -178,19 +151,6 @@ export const SAMPLE_DESK = {
       next: 'Expect detailed industry submissions before the December deadline, most of them focused on the threshold.',
       summaryLine: 'A draft code would require independent audits before the most capable AI models are released.',
     },
-    social: {
-      kicker: 'Rules are coming',
-      headline: 'Regulators want big AI models checked before they launch',
-      dek: 'A new draft rulebook says the most powerful models need an outside audit first. Nobody’s sure yet who counts as “most powerful”.',
-      body: [
-        'The Atlantic Digital Standards Board has put out a draft code: if you build one of the most capable AI models, you’d need an independent audit before release — and you’d have to publish a summary of what it found.',
-        'People have until 15 December to respond, and the plan is for the rules to apply from 1 July 2027. The industry’s main complaint so far is that the line between “covered” and “not covered” is fuzzy.',
-      ],
-      why: 'Right now, AI companies mostly grade their own homework. This would change that — if there are enough auditors to go around. One industry body counts fewer than 10.',
-      shortVersion: 'Outside checks before big AI launches. Details still being argued over.',
-      summaryLine: 'Draft rules would make the biggest AI models pass an outside audit before launch.',
-      quiz: { q: 'When does consultation on the draft audit code close?', options: ['15 December', '1 July 2027', 'It already has'], answer: 0 },
-    },
     depth: {
       timeline: [
         { when: '1 Oct · 09:00 UTC', what: 'The Board publishes the draft Code of Practice.' },
@@ -229,18 +189,6 @@ export const SAMPLE_DESK = {
       ],
       why: 'The gap between deployment and measurable savings is where AI budgets will be tested in next year’s planning rounds.',
       summaryLine: 'AI in production rose to 38% of surveyed firms, but only 9% report savings.',
-    },
-    social: {
-      kicker: 'Reality check',
-      headline: 'Lots of companies use AI now. Few can prove it saves money',
-      dek: '38% of firms have AI running for real. Just 9% can point to savings.',
-      body: [
-        'The Halberd Institute asked 1,200 companies about AI. 38% now have at least one AI system actually running — up from 22% last year.',
-        'But only 9% can point to real savings across the company. The biggest headache? Messy data (61%), then cost (47%). These are the companies’ own answers, so treat them as self-reported.',
-      ],
-      why: 'Everyone’s trying it. The next question bosses will ask is: “Is it paying off?”',
-      shortVersion: 'AI use is up. Proof it’s worth it, not so much.',
-      summaryLine: 'More firms use AI, but only 9% can prove it saves money.',
     },
     depth: {
       timeline: [
@@ -288,18 +236,6 @@ export const SAMPLE_DESK = {
       why: 'Capital is moving from AI models to machines that apply them to physical work — the next test of whether AI changes productivity.',
       summaryLine: 'Warehouse-robot maker Tessel raised $410m.',
     },
-    social: {
-      kicker: 'Robots, but useful',
-      headline: 'Robots that move boxes just raised $410 million',
-      dek: 'Tessel’s warehouse robots are already working at 140 sites, the company says.',
-      body: [
-        'Tessel builds robots that work in warehouses, and it has just raised $410 million to make more of them. It says they’re already at 140 sites.',
-        'Reportedly, the deal values the company at $3.1 billion — that’s from two people familiar with it, not from Tessel, which isn’t commenting.',
-      ],
-      why: 'AI that lives in a chat window is one thing. AI that moves real stuff around is where the productivity story gets tested.',
-      shortVersion: 'Big money for robots that do real work.',
-      summaryLine: 'Warehouse-robot maker Tessel raised $410m.',
-    },
     depth: {
       timeline: [
         { when: '1 Oct · 12:00 UTC', what: 'Tessel announces its Series C.' },
@@ -337,19 +273,6 @@ export const SAMPLE_DESK = {
       next: 'Peer review, and the service’s own side-by-side evaluation over the winter.',
       summaryLine: 'An AI weather model beat physics-based forecasts at 10 days in an early, unreviewed study.',
     },
-    social: {
-      kicker: 'Science corner',
-      headline: 'An AI just got better at predicting the weather',
-      dek: 'Ten days out, it beat the traditional model most of the time. Farmers are paying attention.',
-      body: [
-        'Researchers at the Northern Meteorological Service and Aster Systems built a machine-learning weather model. Over two years of testing, it beat the best traditional model on 87% of the things they measured, 10 days ahead.',
-        'Big caveat: the study hasn’t been peer reviewed yet. The service will run it next to its usual model from November, but official forecasts won’t change for now.',
-      ],
-      why: 'If you farm, ten days of reliable weather is the difference between guessing and planning when to plant, spray or harvest.',
-      shortVersion: 'Promising early results. Not peer reviewed yet.',
-      summaryLine: 'An AI weather model beat the usual one 10 days out — early days, not yet peer reviewed.',
-      quiz: { q: 'On what share of variables did the AI weather model come out ahead?', options: ['Half', '87%', 'All of them'], answer: 1 },
-    },
     depth: {
       timeline: [
         { when: '30 Sep · 18:00 UTC', what: 'Preprint posted to Atmos Open.' },
@@ -383,17 +306,6 @@ export const SAMPLE_DESK = {
       ],
       why: 'Running tests before proposing a change is the kind of guardrail that makes agents usable in real codebases.',
       summaryLine: 'Code editor Loom added an agent mode that tests its own changes.',
-    },
-    social: {
-      kicker: 'For the coders',
-      headline: 'Loom’s new agent tests its own work',
-      dek: 'It writes the change, runs the tests, then asks before committing.',
-      body: [
-        'Loom, a code editor the company says has 2.3 million monthly users, now has an agent mode. It can change several files at once and runs your tests before suggesting a commit.',
-      ],
-      why: 'An AI helper that checks its own work before bothering you is a lot more useful than one that doesn’t.',
-      shortVersion: 'Smarter coding helper, with a built-in self-check.',
-      summaryLine: 'Loom’s new coding agent tests its own changes.',
     },
     depth: { timeline: [{ when: '1 Oct · 18:00 UTC', what: 'Loom 9.0 released with agent mode.' }], saying: [], related: ['ai-kestrel-4'] },
     sourceNotes: {
@@ -432,19 +344,6 @@ export const SAMPLE_DESK = {
       why: 'Cocoa has been one of the sharpest pressures on confectionery costs. Manufacturers’ margins will recover well before shelf prices fall.',
       summaryLine: 'Cocoa is down 18% in a month on a bigger harvest — but shelf prices will take months to follow.',
     },
-    social: {
-      kicker: 'Sweet-ish news',
-      headline: 'Chocolate is getting cheaper to make. Just not to buy (yet)',
-      dek: 'Cocoa prices dropped 18% this month. Your chocolate bar won’t notice until spring.',
-      body: [
-        'Cocoa prices have fallen 18% in a month, market reports say, because the West African harvest is looking bigger — 5.1 million tonnes worldwide, up 9%.',
-        'So why isn’t chocolate cheaper? Makers buy their cocoa months ahead, so price drops take six to nine months to reach the shelf. And cocoa is still about twice what it cost in 2022.',
-      ],
-      why: 'Chocolate makers get relief first. Shoppers come later.',
-      shortVersion: 'Cheaper cocoa now, cheaper chocolate… eventually.',
-      summaryLine: 'Cocoa is down 18% — but don’t expect cheaper chocolate before spring.',
-      quiz: { q: 'Roughly how long do lower cocoa prices take to reach the shelf?', options: ['A week', 'Six to nine months', 'Two years'], answer: 1 },
-    },
     depth: {
       timeline: [
         { when: '30 Sep', what: 'The Producers’ Forum raises its global crop estimate to 5.1 million tonnes.' },
@@ -480,17 +379,6 @@ export const SAMPLE_DESK = {
       why: 'Front-of-pack warnings tend to push manufacturers to reformulate rather than carry the label.',
       summaryLine: 'Front-of-pack sugar warnings proposed for products above 22.5g per 100g.',
     },
-    social: {
-      kicker: 'Read the label',
-      headline: 'Sugary foods may soon come with a warning on the front',
-      dek: 'Anything above 22.5g of sugar per 100g would get a label.',
-      body: [
-        'The National Food Standards Council wants a warning on the front of packs for products with more than 22.5g of sugar per 100g. Food makers like the idea, but say 18 months isn’t enough time to change their recipes.',
-      ],
-      why: 'Warning labels often push companies to quietly cut the sugar rather than wear the label.',
-      shortVersion: 'Sugar warnings proposed. Food makers want more time.',
-      summaryLine: 'Sugar warning labels proposed for the front of packs.',
-    },
     depth: { timeline: [{ when: '1 Oct', what: 'Consultation opens.' }, { when: '30 Jan 2027', what: 'Consultation closes.' }], saying: [], related: [] },
     sourceNotes: {
       'labels-nfsc': { heading: 'The proposal', role: 'Regulatory consultation' },
@@ -515,17 +403,6 @@ export const SAMPLE_DESK = {
       ],
       why: 'Cost parity is the threshold at which alternative proteins compete on price rather than principle — which is why the claim needs evidence.',
       summaryLine: 'Brightwell claims cost parity for fermented whey; no data yet.',
-    },
-    social: {
-      kicker: 'Claim, unverified',
-      headline: 'A lab-made milk protein says it’s as cheap as the real thing',
-      dek: 'Brightwell says so. It hasn’t shown its numbers.',
-      body: [
-        'Brightwell Foods says the whey protein it makes by fermentation now costs the same as whey from cows, at its new 200,000-litre plant. Analysts aren’t convinced yet: no cost data, and dairy prices have been falling anyway.',
-      ],
-      why: 'If it’s true, it’s a big moment for alternative proteins. That’s exactly why it needs proof.',
-      shortVersion: 'Big claim, no receipts yet.',
-      summaryLine: 'Brightwell says its lab-made whey is as cheap as dairy — unverified.',
     },
     depth: { timeline: [{ when: '1 Oct', what: 'Brightwell announces cost parity.' }, { when: '1 Oct', what: 'Analysts question the claim.' }], saying: [], related: [] },
     sourceNotes: {
@@ -569,22 +446,6 @@ export const SAMPLE_DESK = {
       next: 'The Council’s next estimate will show whether October rain arrives in time. Millers’ forward contracts will show how much of the rise passes through.',
       summaryLine: 'The wheat harvest forecast was cut 7% after a dry September; futures hit a four-month high.',
       remember: 'A smaller wheat crop is a farming story this week and a food-price story in the months ahead.',
-    },
-    social: {
-      kicker: 'The big one today',
-      headline: 'A dry September just shrank the wheat harvest',
-      dek: 'And yes — eventually, that’s about the price of your bread.',
-      body: [
-        'The National Grain Council now expects 7% less wheat this season: 24.6 million tonnes. The reason is simple. September brought just 38% of its usual rain.',
-        'Markets moved fast: wheat futures jumped 4.2% to a four-month high. On the farm, some growers are holding back fertiliser on fields that probably won’t make it anyway.',
-        'Will bread cost more? Maybe, but slowly. Flour is only about 20% of the price of a loaf, so bakers say changes trickle through rather than land overnight.',
-      ],
-      why: 'Less wheat squeezes millers, animal feed and exports all at once. For farmers, every decision right now is basically a bet on rain.',
-      shortVersion: 'Dry month, smaller harvest, pricier wheat. Bread later, maybe.',
-      didYouKnow: 'Flour is roughly 20% of the price of a standard loaf. The rest is labour, energy, packaging and margin.',
-      summaryLine: 'A dry September shrank the wheat harvest by 7%.',
-      remember: 'Today’s farm story is tomorrow’s food-price story. It just takes a while to travel.',
-      quiz: { q: 'How much of its usual rainfall did September bring?', options: ['38%', '75%', '110%'], answer: 0 },
     },
     depth: {
       timeline: [
@@ -635,17 +496,6 @@ export const SAMPLE_DESK = {
       why: 'Nitrogen is one of the largest variable costs in arable farming; cheaper fertiliser cushions margins in a difficult season.',
       summaryLine: 'Urea fertiliser prices fell 11% to a 2021 low.',
     },
-    social: {
-      kicker: 'Small win',
-      headline: 'Some good news: fertiliser just got cheaper',
-      dek: 'Down 11% in September, the lowest since 2021.',
-      body: [
-        'Urea, the most common nitrogen fertiliser, fell 11% in price in September — its lowest since 2021 — as new factories came online. The catch: in a dry year, some farmers are buying less of it anyway.',
-      ],
-      why: 'Fertiliser is one of farming’s biggest bills. Cheaper is welcome in a tough season.',
-      shortVersion: 'Cheaper fertiliser, awkward timing.',
-      summaryLine: 'Fertiliser prices are down 11%.',
-    },
     depth: { timeline: [{ when: 'September', what: 'Urea prices fall 11%.' }], saying: [], related: ['farm-wheat-forecast'] },
     sourceNotes: {
       'fert-monitor': { heading: 'The price data', role: 'Market data' },
@@ -672,18 +522,6 @@ export const SAMPLE_DESK = {
       ],
       why: 'Approval without an on-site operator is the regulatory step that turns autonomy from a demonstration into a labour model.',
       summaryLine: 'A driverless tractor was approved to work with no operator on site.',
-    },
-    social: {
-      kicker: 'Look, no driver',
-      headline: 'This tractor is now allowed to farm by itself',
-      dek: 'One person can keep an eye on up to four of them remotely.',
-      body: [
-        'Regulators have cleared the Fieldwright AT-7 to work fields with nobody on site, as long as it stays inside a virtual fence and someone supervises remotely — up to four machines each.',
-        'Fieldwright says deliveries start in March 2027, as a subscription. Why the interest? Contractors simply can’t find enough drivers for night shifts.',
-      ],
-      why: 'This is the step that turns “cool robot demo” into “actual way to run a farm”.',
-      shortVersion: 'Self-driving tractors get the green light.',
-      summaryLine: 'A self-driving tractor got approval to work with nobody on site.',
     },
     depth: {
       timeline: [
@@ -727,17 +565,6 @@ export const SAMPLE_DESK = {
       why: 'Kitting is repetitive, varied work that fixed automation handles poorly — a realistic first test for general-purpose robots.',
       summaryLine: 'Halvorsen Motors is piloting 20 humanoid robots at a car plant.',
     },
-    social: {
-      kicker: 'Meanwhile, at the factory',
-      headline: 'Twenty humanoid robots just clocked in at a car plant',
-      dek: 'It’s a 12-week trial, and the union is on board.',
-      body: [
-        'Halvorsen Motors is trying out 20 humanoid robots at its Lindholm plant, gathering parts for the assembly line. It’s a 12-week pilot, and the union says no jobs will be cut while it runs.',
-      ],
-      why: 'Fetching and sorting parts is fiddly, varied work — a real test of whether humanoid robots are useful yet.',
-      shortVersion: 'Humanoid robots, on trial, with the union’s blessing.',
-      summaryLine: 'A carmaker is trialling 20 humanoid robots.',
-    },
     depth: { timeline: [{ when: '1 Oct', what: 'Pilot begins at Lindholm.' }], saying: [], related: ['ai-tessel-funding'] },
     sourceNotes: {
       'halvorsen-release': { heading: 'The pilot', role: 'Company announcement' },
@@ -764,17 +591,6 @@ export const SAMPLE_DESK = {
       why: 'Evening peaks are when solar fades; batteries covering them is what makes higher renewable shares workable.',
       summaryLine: 'Grid batteries passed 10 GW and met a record 14% of evening peak.',
     },
-    social: {
-      kicker: 'Power move',
-      headline: 'Batteries just ran 14% of the evening peak',
-      dek: 'Grid storage has doubled in 18 months.',
-      body: [
-        'There are now more than 10 gigawatts of batteries on the grid — double 18 months ago. On 29 September they supplied a record 14% of the evening rush, when everyone gets home and switches things on.',
-      ],
-      why: 'The sun sets right when demand peaks. Batteries bridging that gap is how more renewables become possible.',
-      shortVersion: 'Big batteries are carrying real load now.',
-      summaryLine: 'Grid batteries hit a record 14% of evening demand.',
-    },
     depth: { timeline: [{ when: '29 Sep', what: 'Batteries supply a record 14% of evening peak.' }], saying: [], related: [] },
     sourceNotes: {
       'grid-operator': { heading: 'The grid operator’s figures', role: 'Official data' },
@@ -800,17 +616,6 @@ export const SAMPLE_DESK = {
       why: 'As synthetic images improve, provenance at the point of capture is becoming the practical answer to “is this real?”.',
       summaryLine: 'Aldane cameras will sign photos at capture from 2027.',
     },
-    social: {
-      kicker: 'Photo nerds, look',
-      headline: 'Your next camera might sign every photo',
-      dek: 'Aldane will add “content credentials” to new models from 2027.',
-      body: [
-        'From 2027, every new Aldane camera will stamp photos with a digital signature saying when and on what device they were taken. You can turn it off — and it proves where a photo came from, not that it’s honest.',
-      ],
-      why: 'With AI images everywhere, “where did this come from?” is becoming the question that matters.',
-      shortVersion: 'Built-in proof of origin, coming to cameras.',
-      summaryLine: 'Aldane cameras will sign their photos from 2027.',
-    },
     depth: { timeline: [{ when: '1 Oct', what: 'Aldane announces content credentials across its range.' }], saying: [], related: [] },
     sourceNotes: {
       'aldane-release': { heading: 'Aldane’s announcement', role: 'Company announcement' },
@@ -818,3 +623,8 @@ export const SAMPLE_DESK = {
     },
   },
 };
+
+import { SOCIAL_VOICE } from './sample-social.js';
+import { HOOKS } from './sample-hooks.js';
+for (const [key, voice] of Object.entries(SOCIAL_VOICE)) SAMPLE_DESK[key].social = voice;
+for (const [key, hook] of Object.entries(HOOKS)) SAMPLE_DESK[key].hooks = hook;

@@ -35,7 +35,9 @@ export const api = {
   list: () => request('GET', '/api/editions'),
   ledger: (id) => request('GET', `/api/editions/${encodeURIComponent(id)}/ledger`),
   audio: (id, mode) => request('GET', `/api/editions/${encodeURIComponent(id)}/audio?mode=${mode}`),
-  email: (id) => request('POST', `/api/editions/${encodeURIComponent(id)}/email`),
+  deliver: (id, channels) => request('POST', `/api/editions/${encodeURIComponent(id)}/deliver`, { channels: channels || [] }),
+  hooks: (id, mode) => request('GET', `/api/editions/${encodeURIComponent(id)}/hooks?mode=${mode}`),
+  sampleHooks: (mode) => request('GET', `/api/hooks/sample?mode=${mode}`),
   async previews(minutes) {
     const out = await request('GET', '/api/previews?minutes=' + minutes);
     editions.set(out.single.id, out.single);

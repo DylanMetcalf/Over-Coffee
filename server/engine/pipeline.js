@@ -18,6 +18,7 @@ import { editEdition, composeSections } from './editor.js';
 import { createWriter } from './writer.js';
 import { runQualityGate } from './quality.js';
 import { buildSummary, buildRemember, buildAudioScript, editionWords } from './generate.js';
+import { buildHooks } from './hooks.js';
 import { EXPECTED_CLUSTERS } from '../data/sample-corpus.js';
 import { getTopic } from './topics.js';
 
@@ -175,6 +176,7 @@ export async function runPipeline(opts) {
       copy: w.copy,
       depth: w.depth,
       figure: w.figure,
+      hooks: w.hooks || null,
     });
   }
   // Related developments: link to stories in this edition, otherwise name the event if we researched it.
@@ -224,6 +226,7 @@ export async function runPipeline(opts) {
       quiet: x.quiet,
     }));
     edition.stories = published;
+    edition.hooks = null;
     edition.summary = { business: buildSummary(published, 'business'), social: buildSummary(published, 'social') };
     edition.remember = { business: buildRemember(published, 'business'), social: buildRemember(published, 'social') };
     edition.quiz = published.filter((x) => x.copy.social?.quiz).slice(0, 3).map((x) => ({ storyId: x.id, ...x.copy.social.quiz }));
@@ -240,6 +243,7 @@ export async function runPipeline(opts) {
       sourcesReviewed: sources.length,
       publishers: edition.research.publishers,
     };
+    edition.hooks = buildHooks(edition);
   };
   assemble(stories);
 

@@ -1,16 +1,21 @@
-// THE NEWSPAPER RENDERER
+// THE NEWSPAPER RENDERER (v2)
 //
 // Pure functions: edition object + presentation mode → HTML string.
 // Used by the browser (web edition) and by the server (print/PDF), so both
 // outputs are always the same edition, never a re-generation.
+//
+// Layout principle: every block is finished. Rows of cards share a height,
+// features carry their own visual, and print flows into columns, so there are
+// no half-empty regions on screen or on paper.
 
 import { esc, longDate, shortDate, hm, plural, numberWord, toneFor } from './util.js';
 import { tierCopy, STATUS_LABEL } from '../shared/format.js';
 import { markSvg } from './mark.js';
 import { illustrationSvg } from './illustration.js';
-import { chartSvg } from './chart.js';
+import { chartSvg, fmtFigure } from './chart.js';
 
-export const ARROW = '<svg class="more__arrow" width="15" height="10" viewBox="0 0 15 10" aria-hidden="true"><path d="M0 5h13M9 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+export const ARROW =
+  '<svg class="more__arrow" width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M1 6h13M9.5 1.5 14 6l-4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 export function renderNewspaper(ed, mode = 'business', opts = {}) {
   const ctx = context(ed, mode, opts);
@@ -30,15 +35,14 @@ function context(ed, mode, opts) {
 
 function sampleBanner(ctx) {
   if (!ctx.ed.sample) return '';
-  return `<div class="sample-banner" role="note"><strong>Design prototype — sample edition.</strong> The organisations, people, quotes and figures in this edition are fictional and are not current news.</div>`;
+  return `<div class="sample-banner" role="note"><strong>Design prototype — sample edition</strong><span>The organisations, people, quotes and figures in this edition are fictional and are not current news.</span></div>`;
 }
 
-/** Status shown next to the kicker: always for anything short of confirmed. */
 function statusTag(ctx, story) {
   const ev = ctx.events.get(story.eventId);
   const soft = ev.claims.find((c) => ['emerging', 'uncertain'].includes(c.status));
   const st = soft?.status || ev.status;
-  const label = st === 'emerging' ? 'Emerging · not yet peer reviewed' : st === 'uncertain' ? 'Unverified claim' : STATUS_LABEL[st];
+  const label = st === 'emerging' ? 'Emerging · not peer reviewed' : st === 'uncertain' ? 'Unverified claim' : STATUS_LABEL[st];
   return `<span class="status status--${st}" title="${esc(soft?.note || ev.claims[0]?.note || '')}">${esc(label)}</span>`;
 }
 
@@ -51,8 +55,68 @@ function moreLink(ctx, story, label) {
   return `<a class="more" href="#/story/${esc(ed.id)}/${esc(story.id)}?mode=${mode}">${esc(label)}${ARROW}</a>`;
 }
 
+function chartFor(ctx, story) {
+  return story.figure ? chartSvg(story.figure, ctx.sources.get(story.figure.source)?.publisher || '') : '';
+}
+
 function readMinutes(ctx) {
   return ctx.ed.stats.readingMinutes[ctx.mode];
+}
+
+function lockup(size = 40, { word = 'Over Coffee', cls = '' } = {}) {
+  return `<span class="lockup ${cls}">${markSvg({ size })}<span class="lockup__word">${esc(word)}</span></span>`;
+}
+
+/** Row sizes for a run of cards so every row is full (no orphans). */
+export function rowsFor(n, max = 3) {
+  const rows = [];
+  let left = n;
+  if (max === 2) {
+    while (left > 0) {
+      const t = left === 1 ? 1 : 2;
+      rows.push(t);
+      left -= t;
+    }
+    return rows;
+  }
+  while (left > 0) {
+    if (left <= 3) {
+      rows.push(left);
+      break;
+    }
+    if (left === 4) {
+      rows.push(2, 2);
+      break;
+    }
+    rows.push(3);
+    left -= 3;
+  }
+  return rows;
+}
+
+function inRows(items, max, render) {
+  let i = 0;
+  return rowsFor(items.length, max)
+    .map((n) => {
+      const slice = items.slice(i, i + n);
+      i += n;
+      return `<div class="row row--${n}">${slice.map((s) => render(s, n)).join('')}</div>`;
+    })
+    .join('');
+}
+
+function colophon(ctx) {
+  const { ed, mode } = ctx;
+  const s = ed.stats;
+  const passed = ed.quality.checks.filter((c) => c.status === 'pass').length;
+  const done = mode === 'social' ? 'That’s it. You’re all caught up.' : 'That’s today’s edition.';
+  const sub = mode === 'social' ? 'Go enjoy your coffee.' : 'You’re up to date.';
+  return `<footer class="colophon">
+  ${markSvg({ size: 52, cls: 'colophon__mark' })}
+  <p class="colophon__done">${done} <em>${sub}</em></p>
+  <p class="colophon__meta">Prepared ${hm(ed.generatedAt)} UTC · ${s.sourcesReviewed} sources from ${s.publishers} publishers reviewed · ${plural(s.considered, 'development')} considered · ${s.published} published · ${passed} of ${ed.quality.checks.length} quality checks passed</p>
+  ${ctx.print ? '' : `<p class="colophon__links"><a href="#/edition/${esc(ed.id)}?mode=${mode}">How this edition was made</a></p>`}
+</footer>`;
 }
 
 // ── BUSINESS ───────────────────────────────────────────────────────────────
@@ -62,8 +126,9 @@ function business(ctx) {
   return `<div class="paper paper--business${ctx.print ? ' paper--print' : ''}">
 ${sampleBanner(ctx)}
 ${businessMasthead(ctx)}
-${lead ? businessFront(ctx) : quietDay(ctx)}
-${ed.sections.map((sec) => businessSection(ctx, sec)).join('')}
+${lead ? businessHero(ctx) + keyFigures(ctx) + leadBody(ctx) + briefBand(ctx) : quietDay(ctx)}
+${ctx.print ? '' : jumpNav(ctx)}
+${ctx.print ? printFlow(ctx) : ed.sections.map((sec) => businessSection(ctx, sec)).join('')}
 ${colophon(ctx)}
 </div>`;
 }
@@ -72,171 +137,180 @@ function businessMasthead(ctx) {
   const { ed } = ctx;
   const n = ed.stories.length;
   return `<header class="mast">
-  <div class="mast__bar">
-    <span class="mast__date">${esc(longDate(ed.editorialDate))}</span>
-    ${markSvg({ size: 22, cls: 'mast__mark' })}
-    <span class="mast__edition">Your ${readMinutes(ctx)}-minute edition</span>
+  <div class="mast__row">
+    ${lockup(46, { cls: 'lockup--xl' })}
+    <div class="mast__right"><span class="pill">${esc(longDate(ed.editorialDate))}</span><span class="pill pill--solid">${readMinutes(ctx)}-minute edition</span></div>
   </div>
-  <div class="mast__title-row">
-    <h1 class="mast__title">Over Coffee</h1>
+  <div class="mast__sub">
+    <p class="mast__tag">Good morning. <em>Here’s what matters.</em></p>
+    <div class="mast__topics">${ed.topics.map((t) => `<span class="chip-s tone-${toneFor(t.id)}"><i></i>${esc(t.label)}</span>`).join('')}<span class="mast__count">${n ? `${numberWord(n)} ${n === 1 ? 'thing' : 'things'} worth knowing today` : 'A quiet morning'}</span></div>
   </div>
-  <div class="mast__rule" aria-hidden="true"></div>
-  <div class="mast__meta">
-    <span class="mast__topics">${ed.topics.map((t) => esc(t.label)).join('<span class="dot">·</span>')}</span>
-    <span class="mast__tag">Good morning. Here’s what matters.</span>
-    <span class="mast__count">${n ? `${numberWord(n)} ${n === 1 ? 'thing' : 'things'} worth knowing today` : 'A quiet morning'}</span>
-  </div>
-  ${keyFigures(ctx)}
 </header>`;
 }
 
-/**
- * The day's headline numbers at a glance. Every value comes from a story's
- * sourced chart data (which the quality gate verifies); no arithmetic is
- * added — the previous value is shown, not a computed change.
- */
+function businessHero(ctx) {
+  const { lead } = ctx;
+  const c = tierCopy(lead.copy.business, 'full');
+  const f = lead.figure;
+  const stat = f
+    ? `<div class="hero__stat"><span class="hero__stat-label">${esc(f.short || f.title)}</span><span class="hero__stat-value">${esc(fmtFigure(f, f.data.at(-1).value))}${f.suffix ? `<small>${esc(f.suffix)}</small>` : ''}</span><span class="hero__stat-delta">from ${esc(fmtFigure(f, f.data.at(-2).value))} · ${esc(f.data.at(-2).label.toLowerCase())}</span></div>`
+    : '';
+  return `<section class="hero tone-${toneFor(lead.topicId)}" aria-label="Lead story">
+  <article class="hero__text story" id="${esc(lead.id)}" data-topic="${esc(lead.topicId)}">
+    <div class="kicker-row"><span class="kicker"><i class="dot"></i>${esc(lead.topicLabel)} · ${esc(c.kicker)}</span>${statusTag(ctx, lead)}</div>
+    <h2 class="hero__headline">${esc(c.headline)}</h2>
+    <p class="hero__dek">${esc(c.dek)}</p>
+    <div class="hero__meta"><span>Lead story</span><span>${ctx.ed.events.find((e) => e.id === lead.eventId)?.sourceIds.length || 0} sources</span><span>${ctx.print ? 'Full story below' : `<a href="#${esc(lead.id)}-body" data-jump="${esc(lead.id)}-body">Read the full story ↓</a>`}</span></div>
+  </article>
+  <div class="hero__visual"><div class="art art--hero">${illustrationSvg(lead, { cls: 'ill--hero' })}</div>${stat}</div>
+</section>`;
+}
+
+/** The day's headline numbers at a glance. Values come from sourced chart data only. */
 function keyFigures(ctx) {
   const items = ctx.order.filter((s) => s.figure?.data?.length >= 2).slice(0, 4);
   if (items.length < 2) return '';
-  const fmt = (f, v) => `${f.unit === '$' ? '$' : ''}${v.toFixed(f.decimals ?? 0)}${f.unit === '%' ? '%' : ''}`;
-  return `<div class="figures" aria-label="Key figures">${items
+  return `<section class="figures" aria-label="Key figures">${items
     .map((s) => {
       const f = s.figure;
       const now = f.data.at(-1).value;
       const before = f.data.at(-2);
       const dir = now > before.value ? 'up' : now < before.value ? 'down' : 'flat';
       const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '—';
-      const href = ctx.print ? '' : ` href="#/read/${esc(ctx.ed.id)}?mode=business&at=${esc(s.id)}" data-jump="${esc(s.id)}"`;
+      const max = Math.max(now, before.value) || 1;
+      const href = ctx.print ? '' : ` href="#${esc(s.id)}" data-jump="${esc(s.id)}"`;
       return `<a class="figure"${href}>
       <span class="figure__label">${esc(f.short || f.title)}</span>
-      <span class="figure__value">${fmt(f, now)}${f.suffix ? `<small>${esc(f.suffix)}</small>` : ''}</span>
-      <span class="figure__delta figure__delta--${dir}"><i aria-hidden="true">${arrow}</i> from ${fmt(f, before.value)} · ${esc(before.label)}</span>
+      <span class="figure__value">${esc(fmtFigure(f, now))}${f.suffix ? `<small>${esc(f.suffix)}</small>` : ''}</span>
+      <span class="figure__bars" aria-hidden="true"><i style="width:${Math.round((before.value / max) * 100)}%"></i><i class="now" style="width:${Math.round((now / max) * 100)}%"></i></span>
+      <span class="figure__delta"><b class="figure__arrow figure__arrow--${dir}">${arrow}</b> from ${esc(fmtFigure(f, before.value))} · ${esc(before.label.toLowerCase())}</span>
     </a>`;
     })
-    .join('')}</div>`;
+    .join('')}</section>`;
 }
 
-function businessFront(ctx) {
-  const { ed, lead } = ctx;
+function leadBody(ctx) {
+  const { lead } = ctx;
   const c = tierCopy(lead.copy.business, 'full');
-  const why = ed.remember?.business;
-  const paras = c.body.map((p) => `<p>${esc(p)}</p>`).join('');
-  return `<section class="front" aria-label="Front page">
-  <article class="lead story" id="${esc(lead.id)}" data-topic="${esc(lead.topicId)}">
-    <div class="kicker-row"><span class="kicker">${esc(lead.topicLabel)} · ${esc(c.kicker)}</span>${statusTag(ctx, lead)}</div>
-    <h2 class="lead__headline">${esc(c.headline)}</h2>
-    <p class="dek dek--lead">${esc(c.dek)}</p>
-    <div class="lead__art">${illustrationSvg(lead, { cls: 'ill--lead' })}</div>
-    <div class="lead__cols">
-      ${paras}
-      ${lead.figure ? chartSvg(lead.figure, ctx.sources.get(lead.figure.source)?.publisher || '') : ''}
-      ${c.why ? `<p class="callout callout--why"><b class="label">Why it matters</b> ${esc(c.why)}</p>` : ''}
-      ${c.changed ? `<p class="callout"><b class="label">What changed</b> ${esc(c.changed)}</p>` : ''}
-      ${c.next ? `<p class="callout"><b class="label">What happens next</b> ${esc(c.next)}</p>` : ''}
-      ${lead.alsoIn?.length ? `<p class="also">Also matters for ${lead.alsoIn.map(esc).join(' and ')}</p>` : ''}
-      ${moreLink(ctx, lead, 'Learn more')}
-    </div>
-  </article>
-  <aside class="rail" aria-label="Today in brief">
-    <section class="rail__block">
-      <h3 class="rail__h">Today in brief</h3>
-      <ol class="brief-list">${ctx.order
-        .map((s, i) => `<li><a href="${ctx.print ? '#' : '#/read/' + esc(ed.id) + '?mode=business&at=' + esc(s.id)}" data-jump="${esc(s.id)}"><span class="brief-list__n">${i + 1}</span><span>${esc(s.copy.business.summaryLine || s.copy.business.headline)}</span></a></li>`)
-        .join('')}</ol>
-    </section>
-    ${why ? `<section class="rail__block rail__block--remember"><h3 class="rail__h">One thing to remember</h3><p class="remember">${esc(why.text)}</p></section>` : ''}
-    <section class="rail__block">
-      <h3 class="rail__h">In this edition</h3>
-      <ul class="index-list">${ed.sections
-        .map((sec) => {
-          const n = sec.storyIds.length + (ed.leadTopicId === sec.topicId ? 1 : 0);
-          return `<li><span>${esc(sec.label)}</span><span class="index-list__n">${n ? plural(n, 'story', 'stories') : 'Quiet today'}</span></li>`;
-        })
-        .join('')}</ul>
-    </section>
+  return `<section class="lead-body" id="${esc(lead.id)}-body" aria-label="The lead story in full">
+  <div class="lead-body__main">
+    <div class="prose prose--lead">${c.body.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
+    <div class="card__foot">${lead.alsoIn?.length ? `<span class="also">Also matters for ${lead.alsoIn.map(esc).join(' and ')}</span>` : ''}${moreLink(ctx, lead, 'Learn more')}</div>
+  </div>
+  <aside class="lead-body__aside">
+    ${chartFor(ctx, lead)}
+    ${c.why ? `<div class="why why--brand"><b class="label">Why it matters</b><p>${esc(c.why)}</p></div>` : ''}
+    ${c.changed ? `<div class="why"><b class="label">What changed</b><p>${esc(c.changed)}</p></div>` : ''}
+    ${c.next ? `<div class="why"><b class="label">What happens next</b><p>${esc(c.next)}</p></div>` : ''}
   </aside>
 </section>`;
 }
 
-function businessSection(ctx, sec) {
-  const items = sec.storyIds.map((id) => ctx.stories.get(id));
-  if (!items.length && ctx.ed.leadTopicId === sec.topicId) return '';
-  if (!items.length) {
-    return `<section class="sec sec--quiet" id="sec-${esc(sec.topicId)}">
-  <header class="sec__head"><h2 class="sec__title">${esc(sec.label)}</h2><span class="sec__count">Quiet today</span></header>
-  <p class="quiet">${esc(sec.quiet || '')}</p>
-</section>`;
-  }
-  const leadNote = ctx.ed.leadTopicId === sec.topicId ? `<span class="sec__count">Lead story on the front page · ${plural(items.length, 'more story', 'more stories')}</span>` : `<span class="sec__count">${plural(items.length, 'story', 'stories')}</span>`;
-  const [first, ...rest] = items;
-  const full = rest.filter((s) => s.tier !== 'brief');
-  const briefs = rest.filter((s) => s.tier === 'brief');
-  return `<section class="sec" id="sec-${esc(sec.topicId)}">
-  <header class="sec__head"><h2 class="sec__title">${esc(sec.label)}</h2>${leadNote}</header>
-  <div class="sec__grid">
-    ${businessStory(ctx, first, { feature: true })}
-    ${full.map((s) => businessStory(ctx, s)).join('')}
-    ${briefs.length ? `<div class="briefs"><h3 class="briefs__h">In brief</h3>${briefs.map((s) => businessStory(ctx, s)).join('')}</div>` : ''}
+function briefBand(ctx) {
+  const { ed } = ctx;
+  const r = ed.remember?.business;
+  return `<section class="brief" aria-label="Today in brief">
+  <div class="brief__list">
+    <h3 class="h-label">Today in brief</h3>
+    <ol>${ctx.order
+      .map(
+        (s, i) => `<li class="tone-${toneFor(s.topicId)}"><a${ctx.print ? '' : ` href="#${esc(s.id)}" data-jump="${esc(s.id)}"`}><span class="brief__n">${String(i + 1).padStart(2, '0')}</span><span class="brief__t">${esc(s.copy.business.summaryLine || s.copy.business.headline)}</span></a></li>`,
+      )
+      .join('')}</ol>
   </div>
+  ${r ? `<div class="remember"><span class="label">One thing to remember</span><p>${esc(r.text)}</p></div>` : ''}
 </section>`;
 }
 
-function businessStory(ctx, story, { feature = false } = {}) {
+function jumpNav(ctx) {
+  const secs = ctx.ed.sections.filter((s) => s.storyIds.length || ctx.ed.leadTopicId === s.topicId);
+  if (secs.length < 2) return '';
+  return `<nav class="jump" aria-label="Sections"><span class="h-label">Jump to</span>${secs
+    .map((s) => {
+      const n = s.storyIds.length;
+      return `<a href="#sec-${esc(s.topicId)}" data-jump="sec-${esc(s.topicId)}" class="chip-s tone-${toneFor(s.topicId)}"><i></i>${esc(s.label)}<b>${n || 'lead'}</b></a>`;
+    })
+    .join('')}</nav>`;
+}
+
+function businessSection(ctx, sec) {
+  const items = sec.storyIds.map((id) => ctx.stories.get(id));
+  const tone = toneFor(sec.topicId);
+  if (!items.length && ctx.ed.leadTopicId === sec.topicId) return '';
+  if (!items.length) {
+    return `<section class="sec sec--quiet tone-${tone}" id="sec-${esc(sec.topicId)}">
+  <header class="sec__head"><i class="sec__dot"></i><h2 class="sec__title">${esc(sec.label)}</h2><span class="count">Quiet today</span><span class="sec__line"></span></header>
+  <div class="quiet-card"><span class="quiet-card__icon">${markSvg({ size: 28 })}</span><p>${esc(sec.quiet || '')}</p></div>
+</section>`;
+  }
+  const note = ctx.ed.leadTopicId === sec.topicId ? `Lead story above · ${plural(items.length, 'more story', 'more stories')}` : plural(items.length, 'story', 'stories');
+  const [first, ...rest] = items;
+  const featured = first.tier !== 'brief';
+  return `<section class="sec tone-${tone}" id="sec-${esc(sec.topicId)}">
+  <header class="sec__head"><i class="sec__dot"></i><h2 class="sec__title">${esc(sec.label)}</h2><span class="count">${note}</span><span class="sec__line"></span></header>
+  ${businessCard(ctx, first, featured ? 'feature' : 'std')}
+  ${rest.length ? inRows(rest, 3, (s, n) => businessCard(ctx, s, n === 1 ? 'wide' : 'std')) : ''}
+</section>`;
+}
+
+function businessCard(ctx, story, variant) {
   const c = tierCopy(story.copy.business, story.tier);
-  const art = feature && story.tier !== 'brief';
-  return `<article class="story story--${story.tier}${feature ? ' story--feature' : ''}" id="${esc(story.id)}" data-topic="${esc(story.topicId)}">
-  ${art ? `<div class="story__art"><div class="art">${illustrationSvg(story)}</div>${story.figure ? chartSvg(story.figure, ctx.sources.get(story.figure.source)?.publisher || '') : ''}</div>` : ''}
-  <div class="story__text">
-    <div class="kicker-row"><span class="kicker">${esc(c.kicker)}</span>${statusTag(ctx, story)}</div>
-    <h3 class="story__headline">${esc(c.headline)}</h3>
+  const brief = story.tier === 'brief';
+  const visual = (variant === 'feature' || variant === 'wide') && !brief;
+  const chart = chartFor(ctx, story);
+  const callouts = [
+    c.why ? `<div class="why"><b class="label">Why it matters</b><p>${esc(c.why)}</p></div>` : '',
+    c.changed ? `<div class="why"><b class="label">What changed</b><p>${esc(c.changed)}</p></div>` : '',
+    c.next ? `<div class="why"><b class="label">What happens next</b><p>${esc(c.next)}</p></div>` : '',
+  ].join('');
+  const text = `<div class="card__text">
+    <div class="kicker-row"><span class="kicker"><i class="dot"></i>${esc(c.kicker)}</span>${statusTag(ctx, story)}</div>
+    <h3 class="card__headline">${esc(c.headline)}</h3>
     ${c.dek ? `<p class="dek">${esc(c.dek)}</p>` : ''}
-    <div class="story__body">
-      ${c.body.map((p) => `<p>${esc(p)}</p>`).join('')}
-      ${!art && story.figure && story.tier !== 'brief' ? chartSvg(story.figure, ctx.sources.get(story.figure.source)?.publisher || '') : ''}
-      ${c.why ? `<p class="callout callout--why"><b class="label">Why it matters</b> ${esc(c.why)}</p>` : ''}
-      ${c.changed ? `<p class="callout"><b class="label">What changed</b> ${esc(c.changed)}</p>` : ''}
-      ${c.next ? `<p class="callout"><b class="label">What happens next</b> ${esc(c.next)}</p>` : ''}
-    </div>
-    ${story.alsoIn?.length ? `<p class="also">Also matters for ${story.alsoIn.map(esc).join(' and ')}</p>` : ''}
-    ${moreLink(ctx, story, 'Learn more')}
-  </div>
-</article>`;
+    <div class="prose">${c.body.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
+    ${!visual && !brief && chart ? chart : ''}
+    ${visual ? '' : callouts}
+    ${variant === 'std' && !ctx.print ? `<div class="card__fill" aria-hidden="true"><div class="art">${illustrationSvg(story)}</div></div>` : ''}
+    <div class="card__foot">${story.alsoIn?.length ? `<span class="also">Also matters for ${story.alsoIn.map(esc).join(' and ')}</span>` : ''}${moreLink(ctx, story, 'Learn more')}</div>
+  </div>`;
+  const art = visual ? `<div class="card__visual"><div class="art">${illustrationSvg(story)}</div>${chart}${callouts}</div>` : '';
+  return `<article class="card card--${variant} story story--${story.tier} tone-${toneFor(story.topicId)}" id="${esc(story.id)}" data-topic="${esc(story.topicId)}">${text}${art}</article>`;
+}
+
+/** Print: one continuous two-column flow, so pages fill and never end half-empty. */
+function printFlow(ctx) {
+  return `<div class="flow">${ctx.ed.sections
+    .map((sec) => {
+      const items = sec.storyIds.map((id) => ctx.stories.get(id));
+      if (!items.length && ctx.ed.leadTopicId === sec.topicId) return '';
+      const head = `<h2 class="flow__head tone-${toneFor(sec.topicId)}"><i class="sec__dot"></i>${esc(sec.label)}<span>${items.length ? plural(items.length, 'story', 'stories') : 'Quiet today'}</span></h2>`;
+      if (!items.length) return head + `<p class="flow__quiet">${esc(sec.quiet || '')}</p>`;
+      return head + items.map((s) => businessCard(ctx, s, 'std')).join('');
+    })
+    .join('')}</div>`;
 }
 
 function quietDay(ctx) {
-  return `<section class="front front--quiet"><div class="quiet-day">
-  ${markSvg({ size: 40 })}
+  return `<section class="quiet-day"><div class="quiet-day__inner">
+  ${markSvg({ size: 64 })}
   <h2>A quiet morning.</h2>
   <p>Nothing in ${ctx.ed.topics.map((t) => esc(t.label)).join(', ')} cleared today’s bar. We would rather tell you that than fill the page.</p>
 </div></section>`;
 }
 
-function colophon(ctx) {
-  const { ed, mode } = ctx;
-  const s = ed.stats;
-  const passed = ed.quality.checks.filter((c) => c.status === 'pass').length;
-  const done = mode === 'social' ? 'That’s it. You’re all caught up — go enjoy your coffee.' : 'That’s today’s edition. You’re done.';
-  return `<footer class="colophon">
-  ${markSvg({ size: 30, cls: 'colophon__mark' })}
-  <p class="colophon__done">${done}</p>
-  <p class="colophon__meta">Prepared ${hm(ed.generatedAt)} UTC · ${s.sourcesReviewed} sources from ${s.publishers} publishers reviewed · ${plural(s.considered, 'development')} considered · ${s.published} published · Quality-checked, ${passed} of ${ed.quality.checks.length} checks passed</p>
-  ${ctx.print ? '' : `<p class="colophon__links"><a href="#/edition/${esc(ed.id)}?mode=${mode}">How this edition was made</a></p>`}
-</footer>`;
-}
-
 // ── SOCIAL ─────────────────────────────────────────────────────────────────
 
-const SOCIAL_HEADS = {
-  why: ['Why people care', 'Why it’s a big deal', 'Why it matters to you', 'Here’s the thing'],
-};
+const SOCIAL_WHY = ['Why you should care', 'The bit that matters', 'Here’s the thing', 'So what?', 'Why it’s a big deal'];
 
 function social(ctx) {
   const { ed, order } = ctx;
+  const [lead, ...rest] = order;
   return `<div class="paper paper--social${ctx.print ? ' paper--print' : ''}">
 ${sampleBanner(ctx)}
 ${socialMasthead(ctx)}
 ${order.length ? socialTldr(ctx) : ''}
-${order.length ? order.map((s, i) => socialStory(ctx, s, i)).join('') : `<section class="s-quietday"><h2>Honestly? Not much happened.</h2><p>Nothing in ${ed.topics.map((t) => esc(t.label)).join(', ')} was worth your time today. Enjoy the quiet.</p></section>`}
+${lead ? socialCard(ctx, lead, 0, 'lead') : `<section class="s-quietday"><h2>Honestly? <em>Nothing happened.</em></h2><p>Nothing in ${ed.topics.map((t) => esc(t.label)).join(', ')} was worth your time today. Enjoy the quiet.</p></section>`}
+${ctx.print ? `<div class="flow">${rest.map((s, i) => socialCard(ctx, s, i + 1, 'std')).join('')}</div>` : inRows(rest, 2, (s) => socialCard(ctx, s, order.indexOf(s), 'std'))}
 ${socialQuiet(ctx)}
 ${socialQuiz(ctx)}
 ${socialRemember(ctx)}
@@ -248,46 +322,44 @@ function socialMasthead(ctx) {
   const { ed } = ctx;
   const n = ed.stories.length;
   return `<header class="s-mast">
-  <div class="s-mast__top">
-    <span class="s-logo">${markSvg({ size: 26 })}<span>over coffee</span></span>
-    <span class="s-mast__date">${esc(shortDate(ed.editorialDate))}</span>
-  </div>
-  <h1 class="s-greet">Morning. <span class="s-greet__em">Here’s what happened.</span></h1>
-  <p class="s-sub">${n ? `${numberWord(n)} ${n === 1 ? 'thing' : 'things'} worth knowing` : 'A quiet one'} · about ${readMinutes(ctx)} minute${readMinutes(ctx) === 1 ? '' : 's'}</p>
-  <div class="s-chips">${ed.topics.map((t) => `<span class="s-chip tone-${toneFor(t.id)}">${esc(t.label)}</span>`).join('')}</div>
+  <div class="s-mast__top">${lockup(40, { word: 'over coffee', cls: 'lockup--social' })}<span class="pill">${esc(shortDate(ed.editorialDate))}</span></div>
+  <h1 class="s-greet">Morning.<br><em>Here’s the tea.</em></h1>
+  <p class="s-sub">${n ? `${numberWord(n)} ${n === 1 ? 'thing' : 'things'} happened. About ${readMinutes(ctx)} minute${readMinutes(ctx) === 1 ? '' : 's'} to catch up.` : 'A quiet one today.'}</p>
+  <div class="s-chips">${ed.topics.map((t) => `<span class="chip-s tone-${toneFor(t.id)}"><i></i>${esc(t.label)}</span>`).join('')}</div>
 </header>`;
 }
 
 function socialTldr(ctx) {
   return `<section class="s-tldr">
-  <h2 class="s-tldr__h">The 30-second version</h2>
+  <h2 class="s-tldr__h">The quick version</h2>
   <ol class="s-tldr__list">${ctx.order
-    .map((s, i) => `<li class="tone-${toneFor(s.topicId)}"><span class="s-num">${i + 1}</span><span>${esc(s.copy.social.summaryLine || s.copy.social.headline)}</span></li>`)
+    .map((s, i) => `<li class="tone-${toneFor(s.topicId)}"><a${ctx.print ? '' : ` href="#${esc(s.id)}" data-jump="${esc(s.id)}"`}><span class="s-num">${i + 1}</span><span>${esc(s.copy.social.summaryLine || s.copy.social.headline)}</span></a></li>`)
     .join('')}</ol>
 </section>`;
 }
 
-function socialStory(ctx, story, i) {
+function socialCard(ctx, story, i, variant) {
   const c = tierCopy(story.copy.social, story.tier);
-  const isLead = i === 0;
+  const lead = variant === 'lead';
   const tone = toneFor(story.topicId);
   const quote = story.tier !== 'brief' ? story.depth?.saying?.[0] : null;
   const quoteSrc = quote && ctx.sources.get(quote.source);
-  const whyHead = SOCIAL_HEADS.why[i % SOCIAL_HEADS.why.length];
-  return `<article class="s-story tone-${tone}${isLead ? ' s-story--lead' : ''} s-story--${story.tier}" id="${esc(story.id)}" data-topic="${esc(story.topicId)}" data-n="${String(i + 1).padStart(2, '0')}">
-  ${isLead || story.tier === 'full' ? `<div class="s-art">${illustrationSvg(story, { cls: 'ill--social' })}</div>` : ''}
-  <div class="s-copy">
+  const chart = story.tier !== 'brief' ? chartFor(ctx, story) : '';
+  return `<article class="s-card tone-${tone} s-card--${lead ? 'lead' : story.tier}" id="${esc(story.id)}" data-topic="${esc(story.topicId)}">
+  ${lead ? `<div class="s-card__art"><div class="art">${illustrationSvg(story, { cls: 'ill--social' })}</div></div>` : ''}
+  <div class="s-card__body">
     <div class="s-meta"><span class="s-n">${String(i + 1).padStart(2, '0')}</span><span class="s-topic">${esc(story.topicLabel)}</span>${statusTag(ctx, story)}</div>
     <p class="s-pill">${esc(c.kicker)}</p>
     <h2 class="s-headline">${esc(c.headline)}</h2>
     ${c.dek ? `<p class="s-dek">${esc(c.dek)}</p>` : ''}
-    ${c.shortVersion ? `<p class="s-short"><b>The short version:</b> ${esc(c.shortVersion)}</p>` : ''}
-    <div class="s-body">${c.body.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
-    ${story.figure && story.tier !== 'brief' ? chartSvg(story.figure, ctx.sources.get(story.figure.source)?.publisher || '') : ''}
-    ${c.why ? `<div class="s-why"><b>${esc(whyHead)}</b><p>${esc(c.why)}</p></div>` : ''}
-    ${quote ? `<blockquote class="s-quote"><p>“${esc(quote.quote)}”</p><footer>— ${esc(quote.who)}, ${esc(quote.role)}${quoteSrc ? `, via ${esc(quoteSrc.publisher)}` : ''}</footer></blockquote>` : ''}
+    ${c.shortVersion ? `<p class="s-short"><b>Short version:</b> ${esc(c.shortVersion)}</p>` : ''}
+    <div class="prose">${c.body.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
+    ${chart}
+    ${c.why ? `<div class="s-why"><b>${esc(SOCIAL_WHY[i % SOCIAL_WHY.length])}</b><p>${esc(c.why)}</p></div>` : ''}
+    ${quote ? `<blockquote class="s-quote"><p>“${esc(quote.quote)}”</p><footer>${esc(quote.who)}, ${esc(quote.role)}${quoteSrc ? ` · via ${esc(quoteSrc.publisher)}` : ''}</footer></blockquote>` : ''}
     ${c.didYouKnow ? `<aside class="s-dyk"><b>Did you know?</b><p>${esc(c.didYouKnow)}</p></aside>` : ''}
-    ${moreLink(ctx, story, 'Tell me more')}
+    ${!lead && !ctx.print ? `<div class="s-fill" aria-hidden="true"><div class="art">${illustrationSvg(story, { cls: 'ill--social' })}</div></div>` : ''}
+    <div class="card__foot">${moreLink(ctx, story, 'Tell me more')}</div>
   </div>
 </article>`;
 }
@@ -296,7 +368,7 @@ function socialQuiet(ctx) {
   const quiet = ctx.ed.sections.filter((s) => !s.storyIds.length && s.quiet && ctx.ed.leadTopicId !== s.topicId);
   if (!quiet.length) return '';
   return `<section class="s-quietnote">${quiet
-    .map((s) => `<p><span class="s-chip tone-${toneFor(s.topicId)}">${esc(s.label)}</span> Quiet today. ${esc(s.quiet.replace(/^Nothing in [^.]+ cleared today’s bar\. /, 'Nothing was worth your time. '))}</p>`)
+    .map((s) => `<p><span class="chip-s tone-${toneFor(s.topicId)}"><i></i>${esc(s.label)}</span> Quiet today. ${esc(s.quiet.replace(/^Nothing in [^.]+ cleared today’s bar\. /, 'Nothing was worth your time. '))}</p>`)
     .join('')}</section>`;
 }
 
@@ -306,8 +378,8 @@ function socialQuiz(ctx) {
   const letters = ['A', 'B', 'C', 'D'];
   const answers = quiz.map((q, i) => `${i + 1}${letters[q.answer]}`).join(' · ');
   return `<section class="s-quiz" data-quiz>
-  <h2 class="s-quiz__h">${numberWord(quiz.length)} questions over coffee</h2>
-  <p class="s-quiz__sub">Were you paying attention? Everything’s in today’s edition.</p>
+  <h2 class="s-quiz__h">${numberWord(quiz.length)} questions <em>over coffee</em></h2>
+  <p class="s-quiz__sub">Were you paying attention? It’s all in today’s edition.</p>
   <ol class="s-quiz__list">${quiz
     .map(
       (q, qi) => `<li class="s-q" data-answer="${q.answer}"><p class="s-q__text">${esc(q.q)}</p><div class="s-q__opts">${q.options
@@ -322,5 +394,5 @@ function socialQuiz(ctx) {
 function socialRemember(ctx) {
   const r = ctx.ed.remember?.social;
   if (!r) return '';
-  return `<section class="s-remember"><h2>If you remember one thing…</h2><p>${esc(r.text)}</p></section>`;
+  return `<section class="s-remember"><h2>If you remember <em>one thing</em>…</h2><p>${esc(r.text)}</p></section>`;
 }

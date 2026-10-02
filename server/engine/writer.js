@@ -38,6 +38,7 @@ function deskCopy(desk) {
     depth: desk.depth || { timeline: [], saying: [], related: [] },
     sourceNotes: desk.sourceNotes || {},
     figure: desk.figure || null,
+    hooks: desk.hooks || null,
   };
 }
 
@@ -60,6 +61,7 @@ export function extractiveCopy(event) {
     depth: { timeline: event.sources.map((s) => ({ when: s.publishedAt.slice(0, 16).replace('T', ' · '), what: `${s.publisher}: ${s.title}` })), saying: [], related: [] },
     sourceNotes: Object.fromEntries(event.sources.map((s) => [s.id, { heading: s.title, role: s.typeLabel }])),
     figure: null,
+    hooks: null,
   };
 }
 
@@ -82,19 +84,34 @@ const VOICE_SCHEMA = {
   },
 };
 
-const OUTPUT_SCHEMA = {
+const HOOKS_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: ['business', 'social'],
-  properties: { business: VOICE_SCHEMA, social: VOICE_SCHEMA },
+  properties: {
+    business: { type: 'object', additionalProperties: false, required: ['ticker', 'tease'], properties: { ticker: { type: 'string' }, tease: { type: 'string' } } },
+    social: { type: 'object', additionalProperties: false, required: ['title', 'line'], properties: { title: { type: 'string' }, line: { type: 'string' } } },
+  },
+};
+
+const OUTPUT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['business', 'social', 'hooks'],
+  properties: { business: VOICE_SCHEMA, social: VOICE_SCHEMA, hooks: HOOKS_SCHEMA },
 };
 
 // Frozen so it caches across every event in every edition.
 const SYSTEM = `You are the writer for Over Coffee, a finite morning newspaper.
 Write one story in two voices from the verified claims and source excerpts you are given.
 
-BUSINESS voice: concise, precise, neutral, premium editorial. No exclamation marks.
-SOCIAL voice: a well-informed friend catching the reader up — warm, plain, occasionally playful. Same facts.
+BUSINESS voice: concise, precise, neutral, premium editorial. No exclamation marks. No emoji.
+SOCIAL voice: the friend who has the tea. Very simple words, short sentences (aim for 12 words or fewer), and gossip-level excitement: "Okay, so.", "Plot twist.", "Here is the juicy bit.", rhetorical questions, the odd exclamation mark (three at most per story). Same facts as Business, none added. Excitement never replaces attribution: anything reported, early or disputed still says so ("says", "reported", "not peer reviewed yet"). Never shout in capitals, never use clickbait phrases.
+
+HOOKS are the lock-screen teasers for push, email and WhatsApp:
+- business.ticker: a headline-style line, 62 characters or fewer, no emoji. business.tease: one short supporting line.
+- social.title: 58 characters or fewer, curiosity-driven, with exactly one emoji at the end. social.line: one or two short sentences.
+- A hook is a true teaser of this story. Every number in it must appear in the claims or excerpts. The story must answer it. No false urgency ("act now", "don't miss"), no vague bait ("you won't believe").
 
 Rules for both voices:
 - Use only facts present in the claims or excerpts. Every number you write must appear in them.
@@ -140,7 +157,8 @@ export class ClaudeWriter {
     if (response.stop_reason === 'refusal') throw new Error('writer declined: ' + (response.stop_details?.category || 'refusal'));
     const text = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
     const copy = JSON.parse(text);
-    const result = { ...extractiveCopy(event), copy };
+    const { hooks, ...voices } = copy;
+    const result = { ...extractiveCopy(event), copy: voices, hooks };
     this.store?.putResearchCache(cacheKey, 'claude-writer', result);
     return result;
   }

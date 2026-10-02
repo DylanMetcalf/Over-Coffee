@@ -12,7 +12,8 @@ import { runPipeline, STAGES, ENGINE_VERSION } from './engine/pipeline.js';
 import { TOPIC_CATALOG, interpretInterest, randomTopic, adventurousTopic, resolveTopic } from './engine/topics.js';
 import { createResearchAdapter } from './engine/research/index.js';
 import { renderPdf, findChrome } from './delivery/pdf.js';
-import { deliverEmail, audioPayload } from './delivery/channels.js';
+import { deliver, audioPayload, renderEmailHtml } from './delivery/channels.js';
+import { withLink } from './engine/hooks.js';
 import { renderPrintDocument } from '../web/js/render/print.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -27,7 +28,7 @@ export const DEFAULT_PROFILE = {
   topics: ['ai', 'food', 'farming'],
   budgetMinutes: 10,
   mode: 'business',
-  delivery: { time: '06:00', method: 'web' },
+  delivery: { time: '06:00', channels: ['push'], whatsapp: '' },
   discovery: 'occasionally',
   pdf: { paper: 'A4' },
   audio: { enabled: true },
@@ -83,6 +84,8 @@ export function createApp({ store = new Store() } = {}) {
   route('PUT', '/api/profile', async ({ body }) => {
     const next = { ...profile(), ...body };
     if (body.delivery) next.delivery = { ...profile().delivery, ...body.delivery };
+    next.delivery.channels = [...new Set((next.delivery.channels || []).filter((c) => ['push', 'email', 'whatsapp'].includes(c)))];
+    next.delivery.whatsapp = String(next.delivery.whatsapp || '').replace(/[^\d+ ]/g, '').slice(0, 20);
     if (Array.isArray(next.topics)) next.topics = [...new Set(next.topics)].slice(0, 12);
     if (![5, 10, 20].includes(Number(next.budgetMinutes))) next.budgetMinutes = 10;
     next.budgetMinutes = Number(next.budgetMinutes);
@@ -144,10 +147,31 @@ export function createApp({ store = new Store() } = {}) {
     const ed = store.getEdition(params.id);
     return ed ? audioPayload(ed, query.get('mode') === 'social' ? 'social' : 'business') : { status: 404, error: 'Edition not found' };
   });
-  route('POST', '/api/editions/:id/email', ({ params }) => {
+  // The morning ping: hooks for push, email and WhatsApp, built from the stored edition.
+  route('GET', '/api/editions/:id/hooks', ({ params, query }) => {
+    const ed = store.getEdition(params.id);
+    if (!ed?.hooks) return { status: 404, error: 'Edition not found' };
+    const mode = query.get('mode') === 'social' ? 'social' : 'business';
+    return { mode, pattern: ed.hooks.pattern, hooks: withLink(ed.hooks, `${BASE_URL}/#/read/${ed.id}?mode=${mode}`)[mode], sample: ed.sample, date: ed.editorialDate };
+  });
+  route('GET', '/api/hooks/sample', async ({ query }) => {
+    const mode = query.get('mode') === 'social' ? 'social' : 'business';
+    const ed = await previewEdition('multi', 10);
+    return { mode, pattern: ed.hooks.pattern, hooks: withLink(ed.hooks, `${BASE_URL}/#/read/${ed.id}?mode=${mode}`)[mode], sample: ed.sample, date: ed.editorialDate, editionId: ed.id };
+  });
+  route('GET', '/email/:id', ({ params, query, res }) => {
+    const ed = store.getEdition(params.id);
+    if (!ed?.hooks) return { status: 404, error: 'Edition not found' };
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(renderEmailHtml({ edition: ed, mode: query.get('mode') === 'social' ? 'social' : 'business', baseUrl: BASE_URL }));
+    return null;
+  });
+  route('POST', '/api/editions/:id/deliver', ({ params, body }) => {
     const ed = store.getEdition(params.id);
     if (!ed) return { status: 404, error: 'Edition not found' };
-    return { file: path.relative(process.cwd(), deliverEmail({ edition: ed, profile: profile(), baseUrl: BASE_URL })) };
+    const p = profile();
+    const channels = (body.channels?.length ? body.channels : p.delivery.channels).filter((c) => ['push', 'email', 'whatsapp'].includes(c));
+    return { delivered: deliver({ edition: ed, profile: p, baseUrl: BASE_URL, channels }) };
   });
 
   route('GET', '/api/previews', async ({ query }) => {
@@ -198,7 +222,7 @@ export function createApp({ store = new Store() } = {}) {
     if (now.getHours() * 60 + now.getMinutes() < h * 60 + m) return;
     if (store.latestEdition(USER, today())) return;
     todaysEdition()
-      .then((ed) => p.delivery?.method === 'email' && deliverEmail({ edition: ed, profile: p, baseUrl: BASE_URL }))
+      .then((ed) => deliver({ edition: ed, profile: p, baseUrl: BASE_URL }))
       .catch((e) => console.error('[scheduler]', e));
   }
 

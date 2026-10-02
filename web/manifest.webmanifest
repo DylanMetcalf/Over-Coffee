@@ -4,7 +4,7 @@
   "description": "Your personal daily newspaper. A few minutes. Everything worth knowing.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f6f2ea",
-  "theme_color": "#f6f2ea",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "icons": [{ "src": "/assets/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

@@ -20,7 +20,8 @@
   max-width: 1040px;
   padding-top: 20px;
 }
-.paper--social .sample-banner { background: repeating-linear-gradient(-45deg, #fbecc8, #fbecc8 8px, #fff3d9 8px, #fff3d9 16px); }
+.paper--social .sample-banner, .depth--social .sample-banner { background: #fff0d6; border-left-color: #e04f37; }
+.paper--social .sample-banner strong, .depth--social .sample-banner strong { color: #c23b25; }
 
 .s-mast { padding: 8px 0 26px; }
 .s-mast__top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 34px; }

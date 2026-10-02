@@ -68,7 +68,7 @@ const SECTIONS = [
     title: 'The newspaper — Business edition',
     intro: 'The primary product surface. A finite newspaper: masthead, front page, sections decided by the editor, and an ending.',
     screens: [
-      ['S08', 'b-front', 'Front page', '#/read/…?mode=business', 'Masthead with the mark as the “ear”, a lead story chosen on significance (here Farming, not AI), and a rail with Today in brief, One thing to remember and the edition index.', ['Verification label next to every kicker (Confirmed / Reported / Emerging …)', 'Two-column lead with drop cap, chart, “Why it matters / What changed / What happens next”', '“Learn more” as a quiet continuation, not a button', 'Section sizes in the index are unequal on purpose: Farming 3 · AI 4 · Food 1']],
+      ['S08', 'b-front', 'Front page', '#/read/…?mode=business', 'A black dateline bar with the mark, the masthead, then a key-figures strip: the day’s headline numbers at a glance, every one sourced. Below, a lead chosen on significance (here Farming, not AI) and a rail with Today in brief, a black “One thing to remember” takeaway and the edition index.', ['Key figures show the previous value, never a computed change', 'Verification label next to every kicker (Confirmed / Reported / Emerging …)', 'Two-column lead with drop cap, chart, “Why it matters / What changed / What happens next”', '“Learn more” as a quiet continuation, not a button', 'Section sizes in the index are unequal on purpose: Farming 3 · AI 4 · Food 1']],
       ['S09', 'b-sec-farming', 'Section — Farming', '', 'Sections are ruled, columned and ordered by their strongest story. The weather study sits in Farming for this reader and is tagged “Also matters for AI” — one event, one story.', ['“Emerging · not yet peer reviewed” on the preprint story']],
       ['S10', 'b-sec-ai', 'Section — AI', '', 'Feature story with editorial illustration and chart, then standard stories in columns.', ['Charts carry only sourced figures (the quality gate checks every value)']],
       ['S11', 'b-sec-food', 'Section — Food', '', 'One story today. Food didn’t get an equal share just because it is a topic.', []],
@@ -170,11 +170,11 @@ const html = `<!doctype html>
 <link rel="stylesheet" href="${url(path.join(ROOT, 'web/css/fonts.css'))}">
 <style>
 @page { size: A4; margin: 16mm 15mm 17mm;
-  @bottom-left { content: 'Over Coffee · Product walkthrough · Design prototype v0.1'; font: 600 7pt 'Instrument Sans', sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #8a8173; }
-  @bottom-right { content: counter(page); font: 600 8pt 'Instrument Sans', sans-serif; color: #8a8173; }
+  @bottom-left { content: 'Over Coffee · Product walkthrough · Design prototype v0.1'; font: 600 7pt 'Instrument Sans', sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #8b8b90; }
+  @bottom-right { content: counter(page); font: 600 8pt 'Instrument Sans', sans-serif; color: #8b8b90; }
 }
 @page :first { @bottom-left { content: none } @bottom-right { content: none } }
-:root { --paper:#f6f2ea; --paper2:#efe8db; --ink:#17140f; --ink2:#39342c; --muted:#6f675b; --hair:#d6cdbd; --accent:#9b2c1f; }
+:root { --paper:#ffffff; --paper2:#f4f4f2; --ink:#0b0b0c; --ink2:#2e2e31; --muted:#6b6b70; --hair:#e0e0dc; --accent:#d42a1c; }
 * { box-sizing: border-box; }
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { margin: 0; font-family: 'Newsreader', Georgia, serif; color: var(--ink); font-size: 10.5pt; line-height: 1.45; }
@@ -195,7 +195,7 @@ p { margin: 0 0 2.6mm; }
 .cover__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
 .cover__grid img { width: 100%; height: 118mm; object-fit: cover; object-position: top; border: 1px solid var(--hair); display: block; box-shadow: 0 1.5mm 4mm rgba(0,0,0,.12); }
 .cover__foot { display: flex; justify-content: space-between; font: 600 7.5pt 'Instrument Sans', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); border-top: 1px solid var(--ink); padding-top: 3mm; margin-top: 8mm; }
-.sample { font: 500 8pt 'Instrument Sans', sans-serif; background: repeating-linear-gradient(-45deg,#efe4cc,#efe4cc 6px,#f3ead7 6px,#f3ead7 12px); border: 1px solid #dccca8; padding: 2.4mm 3.5mm; margin: 0 0 6mm; }
+.sample { font: 500 8pt 'Instrument Sans', sans-serif; background: var(--paper2); border-left: 3px solid var(--accent); padding: 2.4mm 3.5mm; margin: 0 0 6mm; }
 .sample b { text-transform: uppercase; letter-spacing: .1em; font-size: 7.5pt; }
 
 /* blocks */
@@ -241,7 +241,7 @@ p { margin: 0 0 2.6mm; }
 .marks figcaption, .sw figcaption { font: 600 7pt 'Instrument Sans', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 2mm; }
 .appicon { width: 26mm; height: 26mm; border-radius: 6mm; background: var(--ink); display: grid; place-items: center; }
 .appicon .oc-mark { color: var(--paper) !important; }
-.appicon .oc-mark circle { fill: #d0452f; }
+.appicon .oc-mark circle { fill: #e3352a; }
 .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3mm; margin: 4mm 0; }
 .sw { margin: 0; }
 .sw div { height: 15mm; border: 1px solid var(--hair); }
@@ -359,9 +359,9 @@ ul.plain li { margin-bottom: 1.6mm; }
     <figure><div class="appicon">${mark(64)}</div><figcaption>App icon</figcaption></figure>
     <figure><img src="${url(path.join(ROOT, 'web/assets/favicon.svg'))}" width="40" height="40" alt=""><figcaption>Favicon</figcaption></figure>
   </div>
-  <p class="k" style="margin-top:5mm">Colour — Business is ink and one accent; Social turns the colour up</p>
+  <p class="k" style="margin-top:5mm">Colour — Business is white, true black and one signal red; Social turns the colour up</p>
   <div class="swatches">
-    ${[['#f6f2ea', 'Paper'], ['#17140f', 'Ink'], ['#9b2c1f', 'Oxblood accent'], ['#d6cdbd', 'Hairline'], ['#2e6a46', 'Confirmed'], ['#b0531c', 'Emerging']].map(([c, n]) => `<figure class="sw"><div style="background:${c}"></div><figcaption>${n}<br>${c}</figcaption></figure>`).join('')}
+    ${[['#ffffff', 'Paper'], ['#0b0b0c', 'Ink'], ['#d42a1c', 'Signal red'], ['#e0e0dc', 'Hairline'], ['#157a45', 'Confirmed'], ['#c2410c', 'Emerging']].map(([c, n]) => `<figure class="sw"><div style="background:${c}"></div><figcaption>${n}<br>${c}</figcaption></figure>`).join('')}
     ${[['#fff8ec', 'Social paper'], ['#5b3fd6', 'AI'], ['#e04f37', 'Food'], ['#2f8655', 'Farming'], ['#2a78bd', 'Robotics'], ['#e2a915', 'Energy']].map(([c, n]) => `<figure class="sw"><div style="background:${c}"></div><figcaption>${n}<br>${c}</figcaption></figure>`).join('')}
   </div>
   <p class="k" style="margin-top:4mm">Type — self-hosted, open licence</p>
@@ -401,11 +401,11 @@ ul.plain li { margin-bottom: 1.6mm; }
   <hr class="rule">
   <p class="k">Verification labels the reader sees</p>
   <div class="legend">
-    <div><span class="status" style="color:#2e6a46">● Confirmed</span><br>Primary source or two independent outlets.</div>
-    <div><span class="status" style="color:#846414">● Reported</span><br>One credible outlet, or an organisation’s own figure.</div>
-    <div><span class="status" style="color:#46598a">● Interpretation</span><br>Analysis or opinion, attributed.</div>
-    <div><span class="status" style="color:#b0531c">○ Emerging</span><br>Early evidence, e.g. not yet peer reviewed.</div>
-    <div><span class="status" style="color:#9b2c1f">○ Unverified</span><br>Claimed but disputed or unconfirmed.</div>
+    <div><span class="status" style="color:#157a45">● Confirmed</span><br>Primary source or two independent outlets.</div>
+    <div><span class="status" style="color:#9a5b00">● Reported</span><br>One credible outlet, or an organisation’s own figure.</div>
+    <div><span class="status" style="color:#3555a6">● Interpretation</span><br>Analysis or opinion, attributed.</div>
+    <div><span class="status" style="color:#c2410c">○ Emerging</span><br>Early evidence, e.g. not yet peer reviewed.</div>
+    <div><span class="status" style="color:#d42a1c">○ Unverified</span><br>Claimed but disputed or unconfirmed.</div>
   </div>
   <hr class="rule">
   <p class="k">The reading budget, in practice (AI · Food · Farming)</p>

@@ -3,7 +3,11 @@
 html, body.print-body { background: #fff; margin: 0; }
 .print-body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .paper--print { max-width: none; padding: 0; background: #fff; }
-.paper--print.paper--business { --paper: #fff; --paper-2: #f3efe7; }
+.paper--print.paper--business { --paper: #fff; }
+.paper--print .figure { padding: 8px 12px; }
+.paper--print .figure__value { font-size: 20pt; }
+.paper--print .figure__label, .paper--print .figure__delta { font-size: 6.8pt; }
+.paper--print .mast__bar { padding: 6px 10px; }
 .paper--print .sample-banner { margin-bottom: 8px; padding: 5px 10px; font-size: 9px; }
 .paper--print .sample-banner strong { font-size: 8.5px; }
 

@@ -86,7 +86,34 @@ function businessMasthead(ctx) {
     <span class="mast__tag">Good morning. Here’s what matters.</span>
     <span class="mast__count">${n ? `${numberWord(n)} ${n === 1 ? 'thing' : 'things'} worth knowing today` : 'A quiet morning'}</span>
   </div>
+  ${keyFigures(ctx)}
 </header>`;
+}
+
+/**
+ * The day's headline numbers at a glance. Every value comes from a story's
+ * sourced chart data (which the quality gate verifies); no arithmetic is
+ * added — the previous value is shown, not a computed change.
+ */
+function keyFigures(ctx) {
+  const items = ctx.order.filter((s) => s.figure?.data?.length >= 2).slice(0, 4);
+  if (items.length < 2) return '';
+  const fmt = (f, v) => `${f.unit === '$' ? '$' : ''}${v.toFixed(f.decimals ?? 0)}${f.unit === '%' ? '%' : ''}`;
+  return `<div class="figures" aria-label="Key figures">${items
+    .map((s) => {
+      const f = s.figure;
+      const now = f.data.at(-1).value;
+      const before = f.data.at(-2);
+      const dir = now > before.value ? 'up' : now < before.value ? 'down' : 'flat';
+      const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '—';
+      const href = ctx.print ? '' : ` href="#/read/${esc(ctx.ed.id)}?mode=business&at=${esc(s.id)}" data-jump="${esc(s.id)}"`;
+      return `<a class="figure"${href}>
+      <span class="figure__label">${esc(f.short || f.title)}</span>
+      <span class="figure__value">${fmt(f, now)}${f.suffix ? `<small>${esc(f.suffix)}</small>` : ''}</span>
+      <span class="figure__delta figure__delta--${dir}"><i aria-hidden="true">${arrow}</i> from ${fmt(f, before.value)} · ${esc(before.label)}</span>
+    </a>`;
+    })
+    .join('')}</div>`;
 }
 
 function businessFront(ctx) {
@@ -103,7 +130,7 @@ function businessFront(ctx) {
     <div class="lead__cols">
       ${paras}
       ${lead.figure ? chartSvg(lead.figure, ctx.sources.get(lead.figure.source)?.publisher || '') : ''}
-      ${c.why ? `<p class="callout"><b class="label">Why it matters</b> ${esc(c.why)}</p>` : ''}
+      ${c.why ? `<p class="callout callout--why"><b class="label">Why it matters</b> ${esc(c.why)}</p>` : ''}
       ${c.changed ? `<p class="callout"><b class="label">What changed</b> ${esc(c.changed)}</p>` : ''}
       ${c.next ? `<p class="callout"><b class="label">What happens next</b> ${esc(c.next)}</p>` : ''}
       ${lead.alsoIn?.length ? `<p class="also">Also matters for ${lead.alsoIn.map(esc).join(' and ')}</p>` : ''}
@@ -166,7 +193,7 @@ function businessStory(ctx, story, { feature = false } = {}) {
     <div class="story__body">
       ${c.body.map((p) => `<p>${esc(p)}</p>`).join('')}
       ${!art && story.figure && story.tier !== 'brief' ? chartSvg(story.figure, ctx.sources.get(story.figure.source)?.publisher || '') : ''}
-      ${c.why ? `<p class="callout"><b class="label">Why it matters</b> ${esc(c.why)}</p>` : ''}
+      ${c.why ? `<p class="callout callout--why"><b class="label">Why it matters</b> ${esc(c.why)}</p>` : ''}
       ${c.changed ? `<p class="callout"><b class="label">What changed</b> ${esc(c.changed)}</p>` : ''}
       ${c.next ? `<p class="callout"><b class="label">What happens next</b> ${esc(c.next)}</p>` : ''}
     </div>

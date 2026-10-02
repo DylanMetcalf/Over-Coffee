@@ -79,6 +79,8 @@ export const SAMPLE_DESK = {
     },
     figure: {
       title: 'API price per million input tokens',
+      short: 'Kestrel 4 API price',
+      suffix: 'per M tokens',
       unit: '$',
       decimals: 2,
       data: [
@@ -141,6 +143,8 @@ export const SAMPLE_DESK = {
     },
     figure: {
       title: 'Lead time for V-series accelerators, weeks',
+      short: 'AI chip lead time',
+      suffix: 'weeks',
       unit: '',
       decimals: 0,
       data: [
@@ -253,6 +257,7 @@ export const SAMPLE_DESK = {
     },
     figure: {
       title: 'Companies with AI in production, %',
+      short: 'Firms running AI in production',
       unit: '%',
       decimals: 0,
       data: [
@@ -600,6 +605,8 @@ export const SAMPLE_DESK = {
     },
     figure: {
       title: 'Wheat production forecast, million tonnes',
+      short: 'Wheat harvest forecast',
+      suffix: 'm tonnes',
       unit: '',
       decimals: 1,
       data: [

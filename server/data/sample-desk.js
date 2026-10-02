@@ -491,7 +491,7 @@ export const SAMPLE_DESK = {
       headline: 'Fertiliser prices fall 11% to their lowest since 2021',
       dek: 'Rare relief on costs, though drought-hit growers may buy less anyway.',
       body: [
-        'Urea prices fell 11% in September to their lowest level since 2021 as new production capacity came online. The timing is mixed for growers: input costs are easing just as dry conditions lead some to cut nitrogen applications.',
+        'Urea prices fell 11% in September to their lowest level since 2021 as new production capacity came online. Cheaper nitrogen should help margins, but growers on drought-hit fields are applying less of it, so many will not see the full benefit.',
       ],
       why: 'Nitrogen is one of the largest variable costs in arable farming; cheaper fertiliser cushions margins in a difficult season.',
       summaryLine: 'Urea fertiliser prices fell 11% to a 2021 low.',

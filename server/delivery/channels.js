@@ -54,10 +54,10 @@ export function renderEmailHtml({ edition, mode, baseUrl }) {
 </td></tr>
 <tr><td style="padding:12px 32px 0"><div style="font:${social ? '800 30px/1.1' : '700 28px/1.15'} ${font};color:#0a0b10;letter-spacing:-.02em">${social ? 'Morning. Here’s what happened.' : 'Good morning. Here’s what matters.'}</div>
   <div style="font:500 14px ${font};color:#7a7f8c;padding-top:8px">${e.readMinutes}-minute edition${edition.sample ? ' · Design prototype — sample content' : ''}</div></td></tr>
-<tr><td style="padding:8px 32px 0"><table role="presentation" width="100%">${items}</table></td></tr>
+<tr><td style="padding:8px 32px 0"><table role="presentation" width="100%">${items}</table>${e.more ? `<p style="margin:6px 0 0;font:500 13px/1.5 ${font};color:#6b7080">+ ${e.more} more inside the paper.</p>` : ''}</td></tr>
 <tr><td style="padding:24px 32px 8px"><a href="${esc(link)}" style="display:inline-block;background:#0a0b10;color:#fff;text-decoration:none;font:650 15px ${font};padding:15px 26px;border-radius:999px">${esc(e.cta)} →</a>
   <a href="${esc(pdf)}" style="font:600 14px ${font};color:#4a4f5c;text-decoration:none;padding-left:18px">Download PDF</a></td></tr>
-<tr><td style="padding:20px 32px 30px;font:400 12px/1.6 ${font};color:#8b909c">${edition.stats.sourcesReviewed} sources reviewed · ${edition.stats.considered} developments considered · quality-checked.<br>That’s the whole edition. When you’ve read it, you’re done.</td></tr>
+<tr><td style="padding:20px 32px 30px;font:400 12px/1.6 ${font};color:#8b909c">${edition.stats.sourcesReviewed} sources reviewed · ${edition.stats.considered} developments considered · quality-checked.<br>The full edition is waiting in your paper. When you’ve read it, you’re done.</td></tr>
 </table></td></tr></table></body></html>`;
 }
 

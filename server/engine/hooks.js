@@ -30,7 +30,7 @@ function lines(story, mode) {
   if (mode === 'business') {
     return { head: h?.ticker || truncate(c.headline, 62), tease: h?.tease || truncate(c.dek || '', 110) };
   }
-  return { head: h?.title || truncate(c.headline, 58), tease: h?.line || truncate(c.dek || '', 120) };
+  return { head: h?.title || truncate(c.headline, 58), tease: h?.line || truncate(c.dek || '', 120), opener: h?.opener };
 }
 
 function truncate(s, n) {
@@ -100,7 +100,7 @@ function forMode(edition, mode, pattern) {
 
   const items = stories.slice(0, 4).map((s) => {
     const l = lines(s, mode);
-    return { head: l.head, line: l.tease };
+    return { head: l.head, line: l.tease, tag: s.hooks?.[mode]?.tag || '' };
   });
 
   const subject = pattern === 'quiet'
@@ -115,9 +115,9 @@ function forMode(edition, mode, pattern) {
     ? [
         `*Over Coffee* ☕ ${date}`,
         '',
-        pattern === 'quiet' ? 'Quiet morning. Nothing was worth your time today.' : 'Okay, you need to hear this:',
+        pattern === 'quiet' ? 'Quiet morning. Nothing was worth your time today.' : (L.opener || 'Morning. Here is the big one:'),
         ...(pattern === 'quiet' ? [] : ['', `*${L.head}*`, L.tease]),
-        ...(items.length > 1 ? ['', 'Also today:', ...items.slice(1, 4).map((i) => `• ${stripEmoji(i.head)}`)] : []),
+        ...(items.length > 1 ? ['', 'Also today:', ...items.slice(1, 4).map((i) => `• ${stripEmoji(i.head)}${i.tag ? ` (${i.tag})` : ''}`)] : []),
         '',
         pattern === 'quiet' ? 'Go enjoy your coffee. You are done.' : `The full thing takes ${m} minutes 👉 {{link}}`,
       ]
@@ -131,7 +131,7 @@ function forMode(edition, mode, pattern) {
 
   return {
     push: { title, body },
-    email: { subject, preheader, items, cta: social ? 'Read today’s paper' : 'Read today’s newspaper', readMinutes: m },
+    email: { subject, preheader, items, more: Math.max(0, n - items.length), cta: social ? 'Read today’s paper' : 'Read today’s newspaper', readMinutes: m },
     whatsapp: { text: wa.join('\n') },
   };
 }

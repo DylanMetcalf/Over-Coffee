@@ -168,7 +168,7 @@ function businessHero(ctx) {
 
 /** The day's headline numbers at a glance. Values come from sourced chart data only. */
 function keyFigures(ctx) {
-  const items = ctx.order.filter((s) => s.figure?.data?.length >= 2).slice(0, 4);
+  const items = ctx.order.filter((s) => s.figure?.data?.length >= 2 && s.id !== ctx.lead.id).slice(0, 4);
   if (items.length < 2) return '';
   return `<section class="figures" aria-label="Key figures">${items
     .map((s) => {

@@ -16,19 +16,19 @@ export const SOCIAL_VOICE = {
     body: [
       'Okay, so. Kestrel Labs just launched Kestrel 4. The big news is the price. It now costs $1.20 for every million tokens. It used to be $3.00. That is 60% less.',
       'Now the twist. Kestrel also released a smaller model called Kestrel 4 Mini. Anyone can download it. The licence even lets you use it for business. Reviewers got it running on a single 48GB graphics card.',
-      'Kestrel says the new model gets 71% of its coding tests right, up from 54%. Small catch. That is Kestrel’s own test. Nobody outside has checked it yet.',
+      'Kestrel says the new model gets 71% of its coding tests right, up from 54%. Small catch. That is Kestrel’s own test. Nobody has independently tested it yet.',
     ],
     why: 'Cheaper AI means more companies can afford it. Analysts say rivals may have to cut their prices too, maybe within weeks. Watch this space!',
     shortVersion: 'Way cheaper. A bit smarter. Plus a mini version anyone can grab.',
     didYouKnow: 'A token is about three-quarters of a word. So a million tokens is around 750,000 words.',
     summaryLine: 'Kestrel cut its AI prices by 60% and dropped a mini model anyone can use.',
-    remember: 'AI is getting cheaper faster than it is getting smarter. That is what changes things.',
+    remember: 'When one lab cuts its price, rivals are under pressure to follow. Analysts say within weeks.',
     quiz: { q: 'How much did Kestrel Labs cut its API price?', options: ['20%', '60%', '90%'], answer: 1 },
   },
 
   'ai-chip-lead-times': {
     kicker: 'Supply chain tea',
-    headline: 'The AI chip queue just got way shorter',
+    headline: 'Varda says its AI chip wait is down to 9 weeks',
     dek: 'A year ago you waited half a year. Now it is about nine weeks.',
     body: [
       'Remember when nobody could get AI chips? Varda Semiconductor says that is over. Its AI chips now arrive in 9 weeks. A year ago, it took 26.',
@@ -82,13 +82,13 @@ export const SOCIAL_VOICE = {
 
   'ai-weather-model': {
     kicker: 'Science corner',
-    headline: 'An AI just beat the usual weather forecast. Early days, though',
+    headline: 'An AI weather model beat the usual one at 10 days. Early days, though',
     dek: 'Ten days out, it won most of the time. Farmers are paying attention.',
     body: [
       'Researchers built an AI weather model. It is from the Northern Meteorological Service and Aster Systems. Over two years of testing, it beat the best regular model on 87% of the things they measured, 10 days ahead.',
-      'Big catch. Nobody outside has checked it yet. The study has not been peer reviewed. The weather service will run the AI next to its usual model from November. Official forecasts will not change for now.',
+      'Big catch. The study has not been peer reviewed, so treat it as early. The weather service will run the AI next to its usual model from November. Official forecasts will not change for now.',
     ],
-    why: 'If you farm, ten days of reliable weather changes everything. It is the gap between guessing and planning when to plant, spray or harvest.',
+    why: 'Agronomists say a reliable ten-day window would change when growers plant, spray and harvest. It is the gap between guessing and planning when to plant, spray or harvest.',
     shortVersion: 'Promising. But not peer reviewed yet.',
     summaryLine: 'An AI weather model beat the usual one 10 days out. Early days, not peer reviewed yet.',
     quiz: { q: 'On what share of variables did the AI weather model come out ahead?', options: ['Half', '87%', 'All of them'], answer: 1 },
@@ -148,7 +148,7 @@ export const SOCIAL_VOICE = {
 
   'farm-wheat-forecast': {
     kicker: 'The big one today',
-    headline: 'A dry September just shrank the wheat harvest',
+    headline: 'A dry September cut the wheat harvest forecast by 7%',
     dek: 'Bakers say it could reach your bread. Slowly.',
     body: [
       'The National Grain Council now expects 7% less wheat this season. That is 24.6 million tonnes, down from 26.5. Why? September brought just 38% of its usual rain.',
@@ -158,14 +158,14 @@ export const SOCIAL_VOICE = {
     why: 'Less wheat squeezes flour mills, animal feed and exports all at once. For farmers, every decision right now is a bet on rain.',
     shortVersion: 'Dry month. Smaller harvest. Pricier wheat. Bread later, maybe.',
     didYouKnow: 'Flour is roughly 20% of the price of a standard loaf. The rest is labour, energy, packaging and margin.',
-    summaryLine: 'A dry September shrank the wheat harvest by 7%.',
+    summaryLine: 'A dry September cut the wheat harvest forecast by 7%.',
     remember: 'A farm story today becomes a food-price story later. It just takes a while to travel.',
     quiz: { q: 'How much of its usual rainfall did September bring?', options: ['38%', '75%', '110%'], answer: 0 },
   },
 
   'farm-fertiliser-prices': {
     kicker: 'Small win',
-    headline: 'Good news for farmers: fertiliser got cheaper',
+    headline: 'Fertiliser got cheaper, but not every farm will feel it',
     dek: 'Down 11% in September. The lowest since 2021.',
     body: [
       'Urea is the most common nitrogen fertiliser. Its price fell 11% in September, traders said. That is the lowest since 2021, because new factories started up.',
@@ -177,7 +177,7 @@ export const SOCIAL_VOICE = {
 
   'farm-autonomous-tractor': {
     kicker: 'Look, no driver',
-    headline: 'This tractor is now allowed to farm all by itself',
+    headline: 'A driverless tractor just got the legal green light',
     dek: 'One person can watch up to four of them from far away.',
     body: [
       'Regulators have approved the Fieldwright AT-7 to work fields with nobody on board. It has to stay inside a digital fence. And someone has to watch it remotely, up to four machines at a time.',

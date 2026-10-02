@@ -1,0 +1,92 @@
+/* Print / PDF — a genuine newspaper artifact. */
+
+html, body.print-body { background: #fff; margin: 0; }
+.print-body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.paper--print { max-width: none; padding: 0; background: #fff; }
+.paper--print.paper--business { --paper: #fff; --paper-2: #f3efe7; }
+.paper--print .sample-banner { margin-bottom: 8px; padding: 5px 10px; font-size: 9px; }
+.paper--print .sample-banner strong { font-size: 8.5px; }
+
+/* masthead */
+.paper--print .mast { margin-bottom: 14px; }
+.paper--print .mast__title { font-size: 66pt; }
+.paper--print .mast__bar, .paper--print .mast__meta { font-size: 7.5pt; }
+.paper--print .mast__tag { font-size: 11pt; }
+
+/* type sizes for paper */
+.paper--print .lead__headline { font-size: 28pt; }
+.paper--print .dek { font-size: 11.5pt; }
+.paper--print .dek--lead { font-size: 13pt; }
+.paper--print .lead__cols p, .paper--print .story__body p { font-size: 9.6pt; line-height: 1.42; margin-bottom: 0.6em; }
+.paper--print .lead__art .ill { aspect-ratio: 16 / 5.4; }
+.paper--print .front { grid-template-columns: 2.15fr 1fr; gap: 0 20px; padding-bottom: 14px; }
+.paper--print .rail { padding-left: 16px; }
+.paper--print .brief-list a, .paper--print .index-list li { font-size: 9.5pt; }
+.paper--print .remember { font-size: 12.5pt; }
+.paper--print .rail__block { padding-bottom: 12px; margin-bottom: 12px; }
+
+.paper--print .sec { padding-top: 14px; break-inside: auto; }
+.paper--print .sec__head { margin-bottom: 12px; break-after: avoid; }
+.paper--print .sec__title { font-size: 18pt; }
+.paper--print .sec__grid > * { padding: 0 14px 14px; }
+.paper--print .story { break-inside: avoid; }
+.paper--print .story__headline { font-size: 14pt; }
+.paper--print .story--feature .story__headline { font-size: 17pt; }
+.paper--print .story--feature .story__art .ill { aspect-ratio: 4 / 3; }
+.paper--print .kicker, .paper--print .status, .paper--print .label { font-size: 6.8pt; }
+.paper--print .chart svg { max-width: 260px; }
+.paper--print .colophon { padding-top: 18px; break-inside: avoid; }
+.paper--print .colophon__done { font-size: 14pt; }
+.paper--print .colophon__meta { font-size: 7.5pt; }
+
+/* social on paper */
+.paper--print.paper--social { --s-bg: #fff; padding: 0; }
+.paper--print .s-greet { font-size: 50pt; }
+.paper--print .s-mast__top { margin-bottom: 14px; }
+.paper--print .s-tldr { padding: 14px 18px; margin-bottom: 20px; }
+.paper--print .s-tldr__list li { font-size: 9.5pt; }
+.paper--print .s-story { break-inside: avoid; margin-bottom: 18px; padding-bottom: 18px; gap: 0 20px; }
+.paper--print .s-story--lead, .paper--print .s-story--full { grid-template-columns: 1fr 2fr; }
+.paper--print .s-art { position: static; }
+.paper--print .s-headline { font-size: 20pt; }
+.paper--print .s-story--lead .s-headline { font-size: 28pt; }
+.paper--print .s-body p, .paper--print .s-why p, .paper--print .s-dyk p { font-size: 9.8pt; line-height: 1.45; }
+.paper--print .s-dek { font-size: 11pt; }
+.paper--print .s-quote p { font-size: 13pt; }
+.paper--print .s-quiz { break-inside: avoid; }
+.paper--print .s-q__opt { font-size: 9pt; padding: 5px 9px; }
+.paper--print .s-quiz__answers { display: block; }
+.paper--print .s-q__result { display: none; }
+
+@media print {
+  a { color: inherit; }
+}
+
+/* Paper is finite too: only the lead carries an illustration; charts stay, because they carry facts. */
+.paper--print .story { break-inside: auto; }
+.paper--print .story--standard, .paper--print .story--brief { break-inside: avoid; }
+.paper--print .story--feature { display: flex; flex-direction: column; }
+.paper--print .story--feature .story__text { order: 1; }
+.paper--print .story--feature .story__art { order: 2; }
+.paper--print .story--feature .story__art .art { display: none; }
+.paper--print .story--feature .story__body { column-count: 2; column-gap: 16px; column-rule: 1px solid var(--hair); }
+.paper--print .story--feature:only-child { display: flex; }
+.paper--print .chart { padding: 6px 0; margin: 4px 0 8px; }
+.paper--print .chart__title { font-size: 7pt; margin-bottom: 4px; }
+.paper--print .chart__source { font-size: 6.5pt; }
+.paper--print .more--print { white-space: nowrap; flex-wrap: nowrap; }
+.paper--print .more__url { white-space: normal; }
+.paper--print .also { font-size: 7.5pt; }
+.paper--print .lead__cols > p:first-child::first-letter { font-size: 3.6em; }
+.paper--print .sec--quiet .quiet { font-size: 10pt; }
+
+/* Social on paper: art only for the lead */
+.paper--print .s-story--full:not(.s-story--lead) { grid-template-columns: 1fr; }
+.paper--print .s-story--full:not(.s-story--lead) .s-art { display: none; }
+.paper--print .s-story--standard, .paper--print .s-story--brief { grid-template-columns: 70px 1fr; gap: 0 16px; }
+.paper--print .s-story--standard::before, .paper--print .s-story--brief::before { font-size: 48px; }
+.paper--print .s-story { break-inside: auto; }
+.paper--print .s-why, .paper--print .s-quote, .paper--print .s-dyk, .paper--print .chart { break-inside: avoid; }
+.paper--print .s-art .ill { aspect-ratio: 3 / 4; }
+.paper--print.paper--social .more { font-size: 10pt; }
+.paper--print.paper--social .more__url { font-size: 8pt; }

@@ -1,0 +1,10 @@
+{
+  "name": "Over Coffee",
+  "short_name": "Over Coffee",
+  "description": "Your personal daily newspaper. A few minutes. Everything worth knowing.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f2ea",
+  "theme_color": "#f6f2ea",
+  "icons": [{ "src": "/assets/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

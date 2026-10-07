@@ -1,5 +1,19 @@
 # Over Coffee
 
+A personal daily newspaper. You say what you care about; each morning it reads the news, checks it, and gives you one finite edition in a Business or Conversational voice. Phone-first (swipe pages), installable (PWA), with PDF and email.
+
+**Start here:** [`docs/WALKTHROUGH.md`](docs/WALKTHROUGH.md) (using it) · [`docs/LAUNCH.md`](docs/LAUNCH.md) (deploying it, what you must do) · [`docs/LAUNCH-VERIFICATION.md`](docs/LAUNCH-VERIFICATION.md) (what was tested).
+
+```
+npm start          # http://localhost:4321 (sample data by default)
+OC_RESEARCH=rss npm start   # live research from the open web
+npm test           # unit + integration tests
+npm run qa         # real-browser launch checks against a running server
+```
+
+---
+
+
 **Good morning. Here’s what matters.**
 
 A personal daily newspaper you can finish over a cup of coffee. Over Coffee researches the reader’s interests, collapses duplicate reporting into events, checks claims against their sources, decides what deserves space within a reading budget, writes the edition in two voices, quality-checks it and delivers it as a finite newspaper on the web, as a PDF and as a short audio summary.

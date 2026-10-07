@@ -79,7 +79,7 @@ test('Social is written simply: short sentences, and excited but never shouting'
 test('delivery writes a push payload, a WhatsApp message and an HTML email from the stored edition', async () => {
   const ed = await run(['ai', 'food', 'farming'], 10);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-outbox-'));
-  const out = deliver({ edition: ed, profile: { mode: 'social', delivery: { channels: ['push', 'email', 'whatsapp'], whatsapp: '+27 82 123 4567' } }, baseUrl: 'https://example.test', outDir: dir });
+  const out = await deliver({ edition: ed, profile: { mode: 'social', delivery: { channels: ['push', 'email', 'whatsapp'], whatsapp: '+27 82 123 4567' } }, baseUrl: 'https://example.test', outDir: dir });
   assert.deepEqual(Object.keys(out).sort(), ['email', 'push', 'whatsapp']);
   assert.match(out.push.url, /https:\/\/example\.test\/#\/read\//);
   assert.ok(!out.whatsapp.text.includes('{{link}}'));

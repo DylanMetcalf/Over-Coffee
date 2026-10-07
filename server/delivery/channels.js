@@ -76,7 +76,7 @@ export function whatsappPayload({ edition, mode, baseUrl, number }) {
  * Deliver an edition to the reader's chosen channels. Writes inspectable
  * files; returns what was prepared for each channel.
  */
-export function deliver({ edition, profile, baseUrl, channels, outDir = path.resolve('data/outbox') }) {
+export async function deliver({ edition, profile, baseUrl, channels, outDir = path.resolve('data/outbox') }) {
   const mode = profile.mode || 'business';
   const wanted = channels || profile.delivery?.channels || [];
   fs.mkdirSync(outDir, { recursive: true });
@@ -96,7 +96,7 @@ export function deliver({ edition, profile, baseUrl, channels, outDir = path.res
     fs.writeFileSync(
       `${stem}.eml`,
       [
-        'To: reader@example.com',
+        `To: ${profile.email || 'reader@example.com'}`,
         `Subject: ${hooks.email.subject}`,
         'MIME-Version: 1.0',
         `Content-Type: multipart/alternative; boundary="${boundary}"`,
@@ -113,7 +113,22 @@ export function deliver({ edition, profile, baseUrl, channels, outDir = path.res
         '',
       ].join('\r\n'),
     );
-    result.email = { file: rel(`${stem}.eml`), html: rel(`${stem}.email.html`), subject: hooks.email.subject };
+    result.email = { file: rel(`${stem}.eml`), html: rel(`${stem}.email.html`), subject: hooks.email.subject, status: 'outbox' };
+    // Real sending: Resend (https://resend.com) when RESEND_API_KEY is set.
+    if (process.env.RESEND_API_KEY && profile.email) {
+      try {
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ from: process.env.OC_EMAIL_FROM || 'Over Coffee <onboarding@resend.dev>', to: [profile.email], subject: hooks.email.subject, html }),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) throw new Error(`Email provider ${res.status}`);
+        result.email.status = 'sent';
+      } catch (err) {
+        result.email.error = err.message;
+      }
+    }
   }
   if (wanted.includes('whatsapp')) {
     const w = whatsappPayload({ edition, mode, baseUrl, number: profile.delivery?.whatsapp });

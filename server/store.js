@@ -15,6 +15,36 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS accounts (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  email TEXT NOT NULL UNIQUE,
+  pw_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+-- Lightweight launch analytics: one row per event, no third parties.
+CREATE TABLE IF NOT EXISTS analytics (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT,
+  name TEXT NOT NULL,
+  props TEXT,
+  at TEXT NOT NULL
+);
+-- One row per edition per channel: prevents duplicate delivery, drives retries.
+CREATE TABLE IF NOT EXISTS deliveries (
+  user_id TEXT NOT NULL,
+  edition_id TEXT NOT NULL,
+  channel TEXT NOT NULL,
+  status TEXT NOT NULL,            -- sent | failed
+  attempts INTEGER NOT NULL DEFAULT 1,
+  detail TEXT,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, edition_id, channel)
+);
 CREATE TABLE IF NOT EXISTS profiles (
   user_id TEXT PRIMARY KEY REFERENCES users(id),
   json TEXT NOT NULL,
@@ -120,6 +150,58 @@ export class Store {
       if (defaults) this.saveProfile(id, defaults);
     }
   }
+  // ── accounts & sessions ──
+  createAccount(id, email, pwHash, name, defaults) {
+    this.ensureUser(id, name, defaults);
+    this.db.prepare('INSERT INTO accounts (user_id, email, pw_hash, created_at) VALUES (?, ?, ?, ?)').run(id, email, pwHash, this.now());
+  }
+  accountByEmail(email) {
+    return this.db.prepare('SELECT user_id AS userId, email, pw_hash AS pwHash FROM accounts WHERE email = ?').get(email) || null;
+  }
+  accountById(userId) {
+    return this.db.prepare('SELECT user_id AS userId, email FROM accounts WHERE user_id = ?').get(userId) || null;
+  }
+  createSession(tokenHash, userId, expiresAt) {
+    this.db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)').run(tokenHash, userId, expiresAt);
+  }
+  sessionUser(tokenHash) {
+    const r = this.db.prepare('SELECT user_id AS userId, expires_at AS exp FROM sessions WHERE token_hash = ?').get(tokenHash);
+    if (!r) return null;
+    if (r.exp < this.now()) {
+      this.deleteSession(tokenHash);
+      return null;
+    }
+    return r.userId;
+  }
+  deleteSession(tokenHash) {
+    this.db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(tokenHash);
+  }
+  onboardedUsers() {
+    return this.db
+      .prepare('SELECT a.user_id AS userId FROM accounts a')
+      .all()
+      .map((r) => r.userId);
+  }
+
+  // ── analytics & deliveries ──
+  logEvent(userId, name, props) {
+    this.db.prepare('INSERT INTO analytics (user_id, name, props, at) VALUES (?, ?, ?, ?)').run(userId || null, name, props ? JSON.stringify(props) : null, this.now());
+  }
+  analyticsSummary() {
+    return this.db.prepare('SELECT name, COUNT(*) AS n, COUNT(DISTINCT user_id) AS users FROM analytics GROUP BY name ORDER BY n DESC').all();
+  }
+  getDelivery(userId, editionId, channel) {
+    return this.db.prepare('SELECT status, attempts, detail FROM deliveries WHERE user_id = ? AND edition_id = ? AND channel = ?').get(userId, editionId, channel) || null;
+  }
+  recordDelivery(userId, editionId, channel, status, detail) {
+    this.db
+      .prepare(
+        `INSERT INTO deliveries (user_id, edition_id, channel, status, attempts, detail, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)
+         ON CONFLICT(user_id, edition_id, channel) DO UPDATE SET status = excluded.status, attempts = attempts + 1, detail = excluded.detail, updated_at = excluded.updated_at`,
+      )
+      .run(userId, editionId, channel, status, detail ? String(detail).slice(0, 300) : null, this.now());
+  }
+
   getProfile(userId) {
     const r = this.db.prepare('SELECT json FROM profiles WHERE user_id = ?').get(userId);
     return r ? JSON.parse(r.json) : null;

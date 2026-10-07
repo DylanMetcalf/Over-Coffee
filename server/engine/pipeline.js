@@ -12,6 +12,7 @@ import { resolveTopic } from './topics.js';
 import { createResearchAdapter, researchTopics } from './research/index.js';
 import { clusterArticles } from './cluster.js';
 import { analyseCluster } from './analyst.js';
+import { claudeTriage, triageEnabled } from './live-analyst.js';
 import { assessSource, claimStatus, eventStatus, SOURCE_TYPE_LABEL } from './verify.js';
 import { scoreEvent, primaryTopic } from './prioritize.js';
 import { editEdition, composeSections } from './editor.js';
@@ -54,7 +55,7 @@ export const STAGES = [
  * @param {(stage:string)=>void} [opts.onStage]
  */
 export async function runPipeline(opts) {
-  const { store, userId, topicIds, budgetMinutes, date, kind = 'daily', extra = null, onStage } = opts;
+  const { store, userId, topicIds, budgetMinutes, date, kind = 'daily', extra = null, onStage, focus = null } = opts;
   const log = [];
   let t = performance.now();
   const stage = (key, note) => {
@@ -66,11 +67,11 @@ export async function runPipeline(opts) {
   };
 
   // 01 — WAKE UP
-  const config = { topicIds: [...topicIds], budgetMinutes, date, kind, discovery: extra };
+  const config = { topicIds: [...topicIds], budgetMinutes, date, kind, discovery: extra, focus: focus || {} };
   stage('wake', `${topicIds.length} topic${topicIds.length === 1 ? '' : 's'} · ${budgetMinutes}-minute budget`);
 
   // 02 — UNDERSTAND
-  const topics = topicIds.map(resolveTopic).filter(Boolean);
+  const topics = topicIds.map(resolveTopic).filter(Boolean).map((t) => (focus?.[t.id]?.length ? { ...t, expansion: focus[t.id], focused: true } : t));
   stage('understand', topics.map((x) => (x.custom ? `${x.label} (new topic)` : x.name)).join(', '));
 
   // 03 — EXPAND
@@ -84,9 +85,19 @@ export async function runPipeline(opts) {
   stage('research', `${research.articles.length} articles · cache ${research.cache.hits.length} hit / ${research.cache.misses.length} miss`);
 
   // 05 — DETECT EVENTS · 06 — CLUSTER
-  const clusters = clusterArticles(research.articles);
+  let clusters;
+  let triaged = false;
+  if (!adapter.sample && research.articles.length && triageEnabled()) {
+    try {
+      clusters = await claudeTriage({ articles: research.articles, topics, store });
+      triaged = true;
+    } catch (err) {
+      console.warn('[triage] model triage failed, using heuristic clustering:', err.message);
+    }
+  }
+  clusters = clusters || clusterArticles(research.articles);
   stage('detect', `${clusters.length} candidate events`);
-  const analysed = clusters.map((c) => ({ cluster: c, analysis: analyseCluster(c, { corpusIndex: EXPECTED_CLUSTERS, userTopics: topics }) }));
+  const analysed = clusters.map((c) => ({ cluster: c, analysis: c.preAnalysis || analyseCluster(c, { corpusIndex: EXPECTED_CLUSTERS, userTopics: topics }) }));
   stage('cluster', `${research.articles.length} articles → ${clusters.length} events`);
 
   // 07 — VERIFY
@@ -150,7 +161,8 @@ export async function runPipeline(opts) {
   stage('prioritize', `top score ${Math.max(0, ...events.map((e) => e.score.total)).toFixed(2)}`);
 
   // 09 — EDIT
-  const editorial = editEdition(events, { minutes: budgetMinutes });
+  // Heuristic live scoring is crude, so it uses a lower bar; model triage and sample desk use the normal one.
+  const editorial = editEdition(events, { minutes: budgetMinutes, lenient: !adapter.sample && !triaged });
   for (const e of events) e.decision = editorial.decisions.get(e.id);
   stage('edit', `${editorial.picked.length} of ${events.length} events published · bar ${editorial.bar.toFixed(2)}`);
 

@@ -11,7 +11,7 @@ export function renderPrintDocument(ed, mode, { baseUrl = '', autoprint = false,
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Over Coffee — ${esc(longDate(ed.editorialDate))}${mode === 'social' ? ' (Social)' : ''}</title>
+<title>Over Coffee — ${esc(longDate(ed.editorialDate))}${mode === 'social' ? ' (Conversational)' : ''}</title>
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/fonts.css">
 <link rel="stylesheet" href="/css/tokens.css">

@@ -34,8 +34,8 @@ function preferredTier(rank, minutes) {
   return 'standard';
 }
 
-export function editEdition(events, { minutes }) {
-  const bar = BAR[minutes] ?? BAR[10];
+export function editEdition(events, { minutes, lenient = false }) {
+  const bar = lenient ? Math.min(BAR[minutes] ?? BAR[10], 0.6) : BAR[minutes] ?? BAR[10];
   const budget = budgetWords(minutes);
   const ranked = [...events].sort((a, b) => b.score.total - a.score.total);
   const decisions = new Map();

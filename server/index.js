@@ -14,44 +14,66 @@ import { createResearchAdapter } from './engine/research/index.js';
 import { renderPdf, findChrome } from './delivery/pdf.js';
 import { deliver, audioPayload, renderEmailHtml } from './delivery/channels.js';
 import { withLink } from './engine/hooks.js';
+import { suggestAreas } from './engine/suggest.js';
 import { renderPrintDocument } from '../web/js/render/print.js';
+import { hashPassword, verifyPassword, normaliseEmail, validEmail, startSession, endSession, userFromRequest, printToken, checkPrintToken, rateLimited } from './auth.js';
+import crypto from 'node:crypto';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WEB = path.resolve(here, '../web');
 const PORT = Number(process.env.PORT || 4321);
 const HOST = process.env.HOST || '0.0.0.0';
 const BASE_URL = process.env.OC_BASE_URL || `http://localhost:${PORT}`;
-const USER = 'reader';
+const SECURE = BASE_URL.startsWith('https://');
+const TRACKED = new Set(['onboarding_completed', 'edition_opened', 'edition_completed', 'learn_more_opened', 'source_opened', 'pwa_installed', 'topics_changed', 'mode_changed', 'pdf_downloaded', 'lab_opened']);
 
 export const DEFAULT_PROFILE = {
   onboarded: false,
   topics: ['ai', 'food', 'farming'],
   budgetMinutes: 10,
   mode: 'business',
-  delivery: { time: '06:00', channels: ['push'], whatsapp: '' },
+  delivery: { time: '06:00', channels: ['email'], whatsapp: '' },
+  tz: 'UTC',
   discovery: 'occasionally',
   pdf: { paper: 'A4' },
   audio: { enabled: true },
 };
 
 export function createApp({ store = new Store() } = {}) {
-  store.ensureUser(USER, 'Reader', DEFAULT_PROFILE);
   const adapter = createResearchAdapter();
-  const today = () => adapter.editionDate || new Date().toISOString().slice(0, 10);
-  const profile = () => ({ ...DEFAULT_PROFILE, ...store.getProfile(USER) });
+  // The edition date follows the reader's own timezone (sample mode pins it).
+  const dateFor = (p) => {
+    if (adapter.editionDate) return adapter.editionDate;
+    try {
+      return new Date().toLocaleDateString('en-CA', { timeZone: p?.tz || 'UTC' });
+    } catch {
+      return new Date().toISOString().slice(0, 10);
+    }
+  };
+  const profile = (user) => ({ ...DEFAULT_PROFILE, ...store.getProfile(user) });
+  const today = (user) => dateFor(profile(user));
 
-  function effectiveToday() {
-    const p = profile();
-    const override = store.getOverride(USER, today());
+  function effectiveToday(user) {
+    const p = profile(user);
+    const override = store.getOverride(user, dateFor(p));
     return { profile: p, override, topicIds: override?.topicIds?.length ? override.topicIds : p.topics, budgetMinutes: p.budgetMinutes };
   }
 
-  async function todaysEdition({ force = false } = {}) {
-    const { topicIds, budgetMinutes, override } = effectiveToday();
-    const existing = store.latestEdition(USER, today());
-    const same = existing && existing.engineVersion === ENGINE_VERSION && existing.config.budgetMinutes === budgetMinutes && existing.config.topicIds.join() === topicIds.join();
+  // One generation at a time per reader: a double tap must not start two pipelines.
+  const inflight = new Map();
+  function todaysEdition(user, opts = {}) {
+    const key = user;
+    if (inflight.has(key)) return inflight.get(key);
+    const run = buildToday(user, opts).finally(() => inflight.delete(key));
+    inflight.set(key, run);
+    return run;
+  }
+  async function buildToday(user, { force = false } = {}) {
+    const { topicIds, budgetMinutes, override } = effectiveToday(user);
+    const existing = store.latestEdition(user, today(user));
+    const same = existing && existing.engineVersion === ENGINE_VERSION && existing.config.budgetMinutes === budgetMinutes && existing.config.topicIds.join() === topicIds.join() && JSON.stringify(existing.config.focus || {}) === JSON.stringify(profile(user).focus || {});
     if (same && !force) return existing;
-    return runPipeline({ store, userId: USER, topicIds, budgetMinutes, date: today(), kind: 'daily', extra: override?.reason ? override : null });
+    return runPipeline({ store, userId: user, topicIds, budgetMinutes, date: today(user), kind: 'daily', extra: override?.reason ? override : null, focus: profile(user).focus });
   }
 
   async function previewEdition(variant, minutes) {
@@ -59,18 +81,66 @@ export function createApp({ store = new Store() } = {}) {
     const existing = store.getEdition(id);
     if (existing && existing.engineVersion === ENGINE_VERSION) return existing;
     const topicIds = variant === 'single' ? ['ai'] : ['ai', 'food', 'farming'];
-    return runPipeline({ store, userId: 'preview', topicIds, budgetMinutes: minutes, date: today(), kind: 'preview', id });
+    return runPipeline({ store, userId: 'preview', topicIds, budgetMinutes: minutes, date: dateFor(null), kind: 'preview', id });
   }
 
   const routes = [];
-  const route = (method, pattern, handler) => routes.push({ method, re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), handler });
+  const route = (method, pattern, handler, { open = false } = {}) => routes.push({ method, open, re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), handler });
+  const PREVIEW_ID = /^preview-(single|multi)-(5|10|20)$/;
+  // A reader may open their own editions and the shared sample previews, nothing else.
+  const owned = (user, id) => {
+    if (PREVIEW_ID.test(id)) return true;
+    const ed = store.getEdition(id);
+    return !!ed && ed.userId === user;
+  };
+  const getOwned = (user, id) => (owned(user, id) ? store.getEdition(id) : null);
+  const track = (user, name, props) => {
+    if (TRACKED.has(name)) store.logEvent(user, name, props);
+  };
 
-  route('GET', '/api/me', () => {
-    const { profile: p, override, topicIds } = effectiveToday();
+  // ── accounts ──
+  const authResponse = (user) => {
+    const acct = store.accountById(user);
+    return { user: { id: user, email: acct?.email }, onboarded: !!profile(user).onboarded };
+  };
+  route('GET', '/api/auth/me', ({ user }) => (user ? authResponse(user) : { user: null }), { open: true });
+  route('POST', '/api/auth/signup', ({ req, res, body }) => {
+    const email = normaliseEmail(body.email);
+    const pw = String(body.password || '');
+    if (rateLimited('signup:' + (req.socket.remoteAddress || ''), 30)) return { status: 429, error: 'Too many attempts. Try again in a few minutes.' };
+    if (!validEmail(email)) return { status: 400, error: 'Enter a valid email address.' };
+    if (pw.length < 8) return { status: 400, error: 'Use at least 8 characters for your password.' };
+    if (store.accountByEmail(email)) return { status: 409, error: 'That email already has an account. Try logging in.' };
+    const id = 'u_' + crypto.randomBytes(8).toString('hex');
+    const tz = typeof body.tz === 'string' && body.tz.length < 60 ? body.tz : 'UTC';
+    store.createAccount(id, email, hashPassword(pw), email.split('@')[0], { ...DEFAULT_PROFILE, tz });
+    startSession(store, id, res, { secure: SECURE });
+    store.logEvent(id, 'signup');
+    return authResponse(id);
+  }, { open: true });
+  route('POST', '/api/auth/login', ({ req, res, body }) => {
+    const email = normaliseEmail(body.email);
+    if (rateLimited('login:' + (req.socket.remoteAddress || '') + email, 8)) return { status: 429, error: 'Too many attempts. Try again in a few minutes.' };
+    const acct = store.accountByEmail(email);
+    if (!acct || !verifyPassword(String(body.password || ''), acct.pwHash)) return { status: 401, error: 'Email or password is not right.' };
+    startSession(store, acct.userId, res, { secure: SECURE });
+    return authResponse(acct.userId);
+  }, { open: true });
+  route('POST', '/api/auth/logout', ({ req, res }) => {
+    endSession(store, req, res);
+    return { ok: true };
+  }, { open: true });
+  route('POST', '/api/track', ({ user, body }) => {
+    track(user, String(body.name || ''), body.props && typeof body.props === 'object' ? body.props : null);
+    return { ok: true };
+  });
+
+  route('GET', '/api/me', ({ user }) => {
+    const { profile: p, override, topicIds } = effectiveToday(user);
     return {
-      user: { id: USER },
+      user: { id: user, email: store.accountById(user)?.email },
       profile: p,
-      today: today(),
+      today: today(user),
       override,
       todayTopics: topicIds.map(resolveTopic),
       profileTopics: p.topics.map(resolveTopic),
@@ -81,75 +151,96 @@ export function createApp({ store = new Store() } = {}) {
     };
   });
 
-  route('PUT', '/api/profile', async ({ body }) => {
-    const next = { ...profile(), ...body };
-    if (body.delivery) next.delivery = { ...profile().delivery, ...body.delivery };
+  route('PUT', '/api/profile', async ({ user, body }) => {
+    const prev = profile(user);
+    const next = { ...prev, ...body };
+    delete next.tz;
+    next.tz = typeof body.tz === 'string' && body.tz.length < 60 ? body.tz : prev.tz;
+    if (body.delivery) next.delivery = { ...prev.delivery, ...body.delivery };
     next.delivery.channels = [...new Set((next.delivery.channels || []).filter((c) => ['push', 'email', 'whatsapp'].includes(c)))];
     next.delivery.whatsapp = String(next.delivery.whatsapp || '').replace(/[^\d+ ]/g, '').slice(0, 20);
-    if (Array.isArray(next.topics)) next.topics = [...new Set(next.topics)].slice(0, 12);
+    if (Array.isArray(next.topics)) next.topics = [...new Set(next.topics.filter((t) => typeof t === 'string' && t.length < 80))].slice(0, 12);
+    // Focus areas per topic: { topicId: ['Explosion protection', …] }
+    const focus = {};
+    for (const [k, v] of Object.entries(next.focus && typeof next.focus === 'object' ? next.focus : {})) {
+      if (next.topics.includes(k) && Array.isArray(v)) focus[k] = [...new Set(v.map((a) => String(a).trim().slice(0, 40)).filter(Boolean))].slice(0, 10);
+    }
+    next.focus = focus;
     if (![5, 10, 20].includes(Number(next.budgetMinutes))) next.budgetMinutes = 10;
     next.budgetMinutes = Number(next.budgetMinutes);
     if (!['business', 'social'].includes(next.mode)) next.mode = 'business';
-    store.saveProfile(USER, next);
+    store.saveProfile(user, next);
+    if (next.onboarded && !prev.onboarded) track(user, 'onboarding_completed', { mode: next.mode, topics: next.topics.length });
+    if (next.mode !== prev.mode && prev.onboarded) track(user, 'mode_changed', { mode: next.mode });
+    if (prev.onboarded && next.topics.join() !== prev.topics.join()) track(user, 'topics_changed', { n: next.topics.length });
     return { profile: next };
   });
 
-  route('POST', '/api/reset', () => {
-    store.saveProfile(USER, DEFAULT_PROFILE);
-    store.setOverride(USER, today(), null);
+  route('POST', '/api/reset', ({ user }) => {
+    store.saveProfile(user, { ...DEFAULT_PROFILE, tz: profile(user).tz });
+    store.setOverride(user, today(user), null);
     return { profile: DEFAULT_PROFILE };
   });
 
   route('GET', '/api/topics/catalog', () => {
     const avail = adapter.availableTopics?.() || new Set();
     return { topics: TOPIC_CATALOG.map((t) => ({ id: t.id, label: t.label, name: t.name, expansion: t.expansion, adjacent: t.adjacent, hasMaterial: avail.has(t.id) })) };
-  });
+  }, { open: true });
 
-  route('POST', '/api/topics/interpret', ({ body }) => ({ topic: interpretInterest(body.text) }));
+  route('POST', '/api/topics/suggest', async ({ req, body }) => {
+    if (rateLimited('suggest:' + (req.socket.remoteAddress || ''), 40, 10 * 60_000)) return { status: 429, error: 'Slow down a little.' };
+    const topic = interpretInterest(String(body.text || '').slice(0, 80));
+    if (!topic) return { status: 400, error: 'Type a topic.' };
+    return { topic: topic.label, ...(await suggestAreas({ topic, store })) };
+  }, { open: true });
+  route('POST', '/api/topics/interpret', ({ body }) => ({ topic: interpretInterest(body.text) }), { open: true });
 
-  route('GET', '/api/topics/random', ({ query }) => {
-    const { topicIds } = effectiveToday();
+  route('GET', '/api/topics/random', ({ user, query }) => {
+    const { topicIds } = effectiveToday(user);
     return { topic: randomTopic(topicIds, adapter.availableTopics?.(), query.get('seed') || Date.now()) };
   });
 
-  route('GET', '/api/topics/adventurous', ({ query }) => {
-    const { profile: p } = effectiveToday();
+  route('GET', '/api/topics/adventurous', ({ user, query }) => {
+    const { profile: p } = effectiveToday(user);
     return adventurousTopic(p.topics, adapter.availableTopics?.(), query.get('seed') || Date.now()) || { topic: null };
   });
 
   // Change Daily — today only; the profile is untouched unless `keep` is set.
-  route('PUT', '/api/today', async ({ body }) => {
-    if (!body.topicIds?.length) store.setOverride(USER, today(), null);
-    else store.setOverride(USER, today(), { topicIds: body.topicIds, reason: body.reason || 'changed', path: body.path || null });
-    if (body.keep && body.topicIds?.length) store.saveProfile(USER, { ...profile(), topics: body.topicIds });
-    const edition = await todaysEdition();
+  route('PUT', '/api/today', async ({ user, body }) => {
+    const ids = Array.isArray(body.topicIds) ? body.topicIds.filter((t) => typeof t === 'string').slice(0, 12) : [];
+    if (!ids.length) store.setOverride(user, today(user), null);
+    else store.setOverride(user, today(user), { topicIds: ids, reason: body.reason || 'changed', path: body.path || null });
+    if (body.keep && ids.length) store.saveProfile(user, { ...profile(user), topics: ids });
+    const edition = await todaysEdition(user);
     return { editionId: edition.id };
   });
 
-  route('GET', '/api/today', async () => {
-    const ed = await todaysEdition();
+  route('GET', '/api/today', async ({ user }) => {
+    const ed = await todaysEdition(user);
     return { edition: ed };
   });
 
-  route('POST', '/api/today/regenerate', async () => {
-    const ed = await todaysEdition({ force: true });
+  route('POST', '/api/today/regenerate', async ({ user }) => {
+    const ed = await todaysEdition(user, { force: true });
     return { edition: ed };
   });
 
-  route('GET', '/api/editions', () => ({ editions: store.listEditions(USER) }));
-  route('GET', '/api/editions/:id', async ({ params }) => {
-    const preview = params.id.match(/^preview-(single|multi)-(5|10|20)$/);
-    const ed = preview ? await previewEdition(preview[1], Number(preview[2])) : store.getEdition(params.id);
+  route('GET', '/api/editions', ({ user }) => ({ editions: store.listEditions(user) }));
+  // Sample previews are public; everything else needs the owner's session.
+  route('GET', '/api/editions/:id', async ({ user, params }) => {
+    const preview = params.id.match(PREVIEW_ID);
+    if (!preview && !user) return { status: 401, error: 'Please log in.', auth: true };
+    const ed = preview ? await previewEdition(preview[1], Number(preview[2])) : getOwned(user, params.id);
     return ed ? { edition: ed } : { status: 404, error: 'Edition not found' };
-  });
-  route('GET', '/api/editions/:id/ledger', ({ params }) => store.editionLedger(params.id));
-  route('GET', '/api/editions/:id/audio', ({ params, query }) => {
-    const ed = store.getEdition(params.id);
+  }, { open: true });
+  route('GET', '/api/editions/:id/ledger', ({ user, params }) => (owned(user, params.id) ? store.editionLedger(params.id) : { status: 404, error: 'Edition not found' }));
+  route('GET', '/api/editions/:id/audio', ({ user, params, query }) => {
+    const ed = getOwned(user, params.id);
     return ed ? audioPayload(ed, query.get('mode') === 'social' ? 'social' : 'business') : { status: 404, error: 'Edition not found' };
   });
   // The morning ping: hooks for push, email and WhatsApp, built from the stored edition.
-  route('GET', '/api/editions/:id/hooks', ({ params, query }) => {
-    const ed = store.getEdition(params.id);
+  route('GET', '/api/editions/:id/hooks', ({ user, params, query }) => {
+    const ed = getOwned(user, params.id);
     if (!ed?.hooks) return { status: 404, error: 'Edition not found' };
     const mode = query.get('mode') === 'social' ? 'social' : 'business';
     return { mode, pattern: ed.hooks.pattern, hooks: withLink(ed.hooks, `${BASE_URL}/#/read/${ed.id}?mode=${mode}`)[mode], sample: ed.sample, date: ed.editorialDate };
@@ -158,43 +249,45 @@ export function createApp({ store = new Store() } = {}) {
     const mode = query.get('mode') === 'social' ? 'social' : 'business';
     const ed = await previewEdition('multi', 10);
     return { mode, pattern: ed.hooks.pattern, hooks: withLink(ed.hooks, `${BASE_URL}/#/read/${ed.id}?mode=${mode}`)[mode], sample: ed.sample, date: ed.editorialDate, editionId: ed.id };
-  });
-  route('GET', '/email/:id', ({ params, query, res }) => {
-    const ed = store.getEdition(params.id);
+  }, { open: true });
+  route('GET', '/email/:id', ({ user, params, query, res }) => {
+    const ed = getOwned(user, params.id);
     if (!ed?.hooks) return { status: 404, error: 'Edition not found' };
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(renderEmailHtml({ edition: ed, mode: query.get('mode') === 'social' ? 'social' : 'business', baseUrl: BASE_URL }));
     return null;
   });
-  route('POST', '/api/editions/:id/deliver', ({ params, body }) => {
-    const ed = store.getEdition(params.id);
+  route('POST', '/api/editions/:id/deliver', async ({ user, params, body }) => {
+    const ed = getOwned(user, params.id);
     if (!ed) return { status: 404, error: 'Edition not found' };
-    const p = profile();
+    const p = profile(user);
     const channels = (body.channels?.length ? body.channels : p.delivery.channels).filter((c) => ['push', 'email', 'whatsapp'].includes(c));
-    return { delivered: deliver({ edition: ed, profile: p, baseUrl: BASE_URL, channels }) };
+    return { delivered: await deliver({ edition: ed, profile: { ...p, email: store.accountById(user)?.email }, baseUrl: BASE_URL, channels }) };
   });
 
   route('GET', '/api/previews', async ({ query }) => {
     const minutes = [5, 10, 20].includes(Number(query.get('minutes'))) ? Number(query.get('minutes')) : 10;
     const [single, multi] = [await previewEdition('single', minutes), await previewEdition('multi', minutes)];
     return { single, multi };
-  });
+  }, { open: true });
 
   // PDF: cached per edition and mode.
-  route('GET', '/api/editions/:id/pdf', async ({ params, query, res }) => {
+  route('GET', '/api/editions/:id/pdf', async ({ user, params, query, res }) => {
     const mode = query.get('mode') === 'social' ? 'social' : 'business';
-    const ed = store.getEdition(params.id);
+    const pm = params.id.match(PREVIEW_ID);
+    const ed = pm ? await previewEdition(pm[1], Number(pm[2])) : getOwned(user, params.id);
     if (!ed) return { status: 404, error: 'Edition not found' };
     let file = store.getArtifact(ed.id, 'pdf', mode);
     if (!file) {
       try {
-        file = await renderPdf({ url: `http://127.0.0.1:${PORT}/print/${ed.id}?mode=${mode}`, outFile: path.resolve('data/artifacts', `${ed.id}-${mode}.pdf`) });
+        file = await renderPdf({ url: `http://127.0.0.1:${PORT}/print/${ed.id}?mode=${mode}&k=${printToken(ed.id)}`, outFile: path.resolve('data/artifacts', `${ed.id}-${mode}.pdf`) });
         store.putArtifact(ed.id, 'pdf', mode, file);
       } catch (err) {
-        if (err.code === 'NO_CHROME') return { redirect: `/print/${ed.id}?mode=${mode}&autoprint=1` };
+        if (err.code === 'NO_CHROME') return { redirect: `/print/${ed.id}?mode=${mode}&autoprint=1&k=${printToken(ed.id)}` };
         throw err;
       }
     }
+    if (query.get('download')) track(user, 'pdf_downloaded', { mode });
     const name = `over-coffee-${ed.editorialDate}-${mode}.pdf`;
     res.writeHead(200, { 'content-type': 'application/pdf', 'content-disposition': `${query.get('download') ? 'attachment' : 'inline'}; filename="${name}"` });
     fs.createReadStream(file).pipe(res);
@@ -202,39 +295,71 @@ export function createApp({ store = new Store() } = {}) {
   });
 
   // Short links printed in the PDF lead back to the digital depth layer.
-  route('GET', '/s/:ed/:st', ({ params, query }) => ({ redirect: `/#/story/${encodeURIComponent(params.ed)}/${encodeURIComponent(params.st)}?mode=${query.get('m') === 's' ? 'social' : 'business'}` }));
+  route('GET', '/s/:ed/:st', ({ params, query }) => ({ redirect: `/#/story/${encodeURIComponent(params.ed)}/${encodeURIComponent(params.st)}?mode=${query.get('m') === 's' ? 'social' : 'business'}` }), { open: true });
 
-  route('GET', '/print/:id', ({ params, query, res }) => {
-    const ed = store.getEdition(params.id);
+  route('GET', '/print/:id', ({ user, params, query, res }) => {
+    // Browser: owner session. PDF renderer: signed token.
+    const ok = checkPrintToken(params.id, query.get('k')) || (user && owned(user, params.id));
+    const ed = ok ? store.getEdition(params.id) : null;
     if (!ed) return { status: 404, error: 'Edition not found' };
     const mode = query.get('mode') === 'social' ? 'social' : 'business';
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    res.end(renderPrintDocument(ed, mode, { baseUrl: BASE_URL, autoprint: query.get('autoprint') === '1', paper: profile().pdf?.paper }));
+    res.end(renderPrintDocument(ed, mode, { baseUrl: BASE_URL, autoprint: query.get('autoprint') === '1', paper: DEFAULT_PROFILE.pdf.paper }));
     return null;
-  });
+  }, { open: true });
 
-  // Delivery scheduler: generate today's edition once the delivery time passes.
-  function tick() {
-    const p = profile();
-    if (!p.onboarded) return;
-    const [h, m] = (p.delivery?.time || '06:00').split(':').map(Number);
-    const now = new Date();
-    if (now.getHours() * 60 + now.getMinutes() < h * 60 + m) return;
-    if (store.latestEdition(USER, today())) return;
-    todaysEdition()
-      .then((ed) => deliver({ edition: ed, profile: p, baseUrl: BASE_URL }))
-      .catch((e) => console.error('[scheduler]', e));
+  route('GET', '/newspaper-lab', () => ({ redirect: '/#/lab' }), { open: true });
+  route('GET', '/healthz', () => ({ ok: true, version: ENGINE_VERSION, research: adapter.name, sample: !!adapter.sample, writer: process.env.OC_WRITER || 'extractive', pdf: !!findChrome() }), { open: true });
+  // Launch signals for the owner: GET /api/admin/stats with header x-admin-token.
+  route('GET', '/api/admin/stats', ({ req }) => {
+    if (!process.env.OC_ADMIN_TOKEN || req.headers['x-admin-token'] !== process.env.OC_ADMIN_TOKEN) return { status: 404, error: 'Not found' };
+    return { events: store.analyticsSummary() };
+  }, { open: true });
+
+  // Delivery scheduler: once a reader's delivery time passes in their own timezone,
+  // generate today's edition and deliver it. Delivery is recorded per channel, so a
+  // restart never double-sends, and a failed channel is retried (max 3 attempts).
+  const MAX_ATTEMPTS = 3;
+  async function tick() {
+    for (const user of store.onboardedUsers()) {
+      try {
+        const p = profile(user);
+        if (!p.onboarded) continue;
+        const [h, m] = (p.delivery?.time || '06:00').split(':').map(Number);
+        const local = new Date(new Date().toLocaleString('en-US', { timeZone: p.tz || 'UTC' }));
+        if (local.getHours() * 60 + local.getMinutes() < h * 60 + m) continue;
+        const wanted = (p.delivery?.channels || []).filter((c) => ['email', 'whatsapp', 'push'].includes(c));
+        const exists = store.latestEdition(user, today(user));
+        if (exists && wanted.every((c) => { const d = store.getDelivery(user, exists.id, c); return d && (d.status === 'sent' || d.attempts >= MAX_ATTEMPTS); })) continue;
+        const ed = exists || (await todaysEdition(user));
+        const pending = wanted.filter((c) => { const d = store.getDelivery(user, ed.id, c); return !d || (d.status === 'failed' && d.attempts < MAX_ATTEMPTS); });
+        if (!pending.length) continue;
+        const results = await deliver({ edition: ed, profile: { ...p, email: store.accountById(user)?.email }, baseUrl: BASE_URL, channels: pending });
+        for (const c of pending) store.recordDelivery(user, ed.id, c, results[c]?.error ? 'failed' : 'sent', results[c]?.error || results[c]?.status || null);
+      } catch (e) {
+        console.error('[scheduler]', user, e.message);
+      }
+    }
   }
 
   async function handler(req, res) {
     const url = new URL(req.url, 'http://x');
+    res.setHeader('x-content-type-options', 'nosniff');
+    res.setHeader('referrer-policy', 'same-origin');
+    res.setHeader('x-frame-options', 'SAMEORIGIN');
+    if (SECURE) res.setHeader('strict-transport-security', 'max-age=31536000');
     try {
       for (const r of routes) {
         if (r.method !== req.method) continue;
         const m = url.pathname.match(r.re);
         if (!m) continue;
+        const user = userFromRequest(store, req);
+        if (!r.open && !user) {
+          res.writeHead(401, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'Please log in.', auth: true }));
+        }
         const body = ['POST', 'PUT'].includes(req.method) ? await readJson(req) : {};
-        const out = await r.handler({ req, res, params: m.groups || {}, query: url.searchParams, body });
+        const out = await r.handler({ req, res, user, params: m.groups || {}, query: url.searchParams, body });
         if (out === null) return;
         if (out.redirect) {
           res.writeHead(302, { location: out.redirect });
@@ -252,7 +377,7 @@ export function createApp({ store = new Store() } = {}) {
     }
   }
 
-  return { handler, tick, store, todaysEdition, previewEdition };
+  return { handler, tick, store, todaysEdition, previewEdition, profile };
 }
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
@@ -272,7 +397,10 @@ function serveStatic(pathname, res) {
 function readJson(req) {
   return new Promise((resolve) => {
     let data = '';
-    req.on('data', (c) => (data += c));
+    req.on('data', (c) => {
+      data += c;
+      if (data.length > 200_000) req.destroy();
+    });
     req.on('end', () => {
       try {
         resolve(data ? JSON.parse(data) : {});

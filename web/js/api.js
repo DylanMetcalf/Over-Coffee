@@ -1,21 +1,33 @@
+// The router bumps this on every navigation. A GET that was started by a screen the
+// reader has already left never resolves, so a slow response cannot repaint over the new screen.
+export const nav = { id: 0 };
+
 async function request(method, url, body) {
+  const started = nav.id;
   const res = await fetch(url, {
     method,
     headers: body ? { 'content-type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || `Request failed (${res.status})`), { status: res.status });
+  if (method === 'GET' && started !== nav.id) return new Promise(() => {});
+  if (!res.ok) throw Object.assign(new Error(data.error || `Request failed (${res.status})`), { status: res.status, auth: !!data.auth });
   return data;
 }
 
 const editions = new Map();
 
 export const api = {
+  authMe: () => request('GET', '/api/auth/me'),
+  signup: (email, password) => request('POST', '/api/auth/signup', { email, password, tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+  login: (email, password) => request('POST', '/api/auth/login', { email, password }),
+  logout: () => request('POST', '/api/auth/logout'),
+  track: (name, props) => request('POST', '/api/track', { name, props }).catch(() => {}),
   me: () => request('GET', '/api/me'),
   saveProfile: (patch) => request('PUT', '/api/profile', patch),
   reset: () => request('POST', '/api/reset'),
   catalog: () => request('GET', '/api/topics/catalog'),
+  suggest: (text) => request('POST', '/api/topics/suggest', { text }),
   interpret: (text) => request('POST', '/api/topics/interpret', { text }),
   random: () => request('GET', '/api/topics/random?seed=' + Date.now()),
   adventurous: () => request('GET', '/api/topics/adventurous?seed=' + Date.now()),

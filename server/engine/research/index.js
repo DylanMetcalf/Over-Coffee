@@ -21,7 +21,7 @@ export async function researchTopics({ adapter, topics, date, store }) {
   const misses = [];
   const seen = new Map();
   for (const topic of topics) {
-    const key = `${adapter.name}:${date}:${topic.id}`;
+    const key = `${adapter.name}:${date}:${topic.id}${topic.focused ? ':' + topic.expansion.join('|').toLowerCase() : ''}`;
     let articles = store?.getResearchCache(key);
     if (articles) hits.push(topic.id);
     else {

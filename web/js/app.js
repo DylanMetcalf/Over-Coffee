@@ -2,10 +2,11 @@
 // Hash routes, plain DOM, no framework. Every screen answers one question:
 // does this help the reader get to their newspaper?
 
-import { api } from './api.js';
+import { api, nav } from './api.js';
 import { renderNewspaper } from './render/newspaper.js';
 import { renderStory, renderSource } from './render/story.js';
 import { markSvg, wordmarkSvg } from './render/mark.js';
+import { pageify, isPhone } from './pager.js';
 import { esc, longDate, shortDate, hm, plural, numberWord, toneFor } from './render/util.js';
 
 const $app = document.getElementById('app');
@@ -35,6 +36,7 @@ function setTone(mode) {
 }
 
 function render(html, { title } = {}) {
+  document.body.classList.remove('has-pager');
   $app.innerHTML = html;
   document.title = title ? `${title} — Over Coffee` : 'Over Coffee';
 }
@@ -93,11 +95,8 @@ async function testPush(h) {
   toast('Test notification sent.');
 }
 
-const CHANNELS = [
-  ['push', 'Push', 'On your phone or desktop'],
-  ['whatsapp', 'WhatsApp', 'A message with the headline'],
-  ['email', 'Email', 'A short briefing with a link'],
-];
+// Push and WhatsApp delivery are not wired up yet (see docs/LAUNCH.md), so only email is offered.
+const CHANNELS = [['email', 'Email', 'A short briefing with a link, ready when you wake up']];
 
 // ── sheet (bottom panel) ─────────────────────────────────────────────────
 
@@ -147,26 +146,100 @@ const routes = {
   settings: viewSettings,
   download: viewDownload,
   compare: viewCompare,
+  lab: viewCompare,
   edition: viewEdition,
   embed: viewEmbed,
 };
 
+let authed = null; // null = unknown, false = logged out, object = user
+
+const PUBLIC_ROOTS = ['compare', 'embed', 'lab'];
+const isPreviewRoute = (parts) => ['read', 'story', 'source'].includes(parts[0]) && String(parts[1] || '').startsWith('preview-');
+
 async function router() {
+  nav.id++;
   const { parts, query } = parseHash();
   const view = routes[parts[0] || ''] || viewHome;
-  document.body.classList.toggle('is-embed', parts[0] === 'embed');
+  if (authed === null) authed = (await api.authMe().catch(() => ({ user: null }))).user || false;
+  if (!authed && !PUBLIC_ROOTS.includes(parts[0]) && !isPreviewRoute(parts)) {
+    document.getElementById('topbar').hidden = true;
+    return viewAuth(parts[0] === 'signup' ? 'signup' : 'login');
+  }
   document.getElementById('topbar').hidden = parts[0] === 'embed';
+  document.body.classList.toggle('is-embed', parts[0] === 'embed');
   try {
-    if (!me) await refreshMe();
+    if (authed && !me) await refreshMe();
+    if (!me) me = { today: new Date().toISOString().slice(0, 10), profile: { onboarded: true, mode: 'business', delivery: {} }, stages: [] };
     const $pill = document.getElementById('datepill');
     if ($pill) $pill.textContent = shortDate(me.today);
     if (!me.profile.onboarded && !['welcome', 'compare', 'embed', 'story', 'source', 'read', 'edition'].includes(parts[0] || '')) return go('#/welcome');
     await view(parts.slice(1), query);
     if (!query.get('at')) window.scrollTo({ top: 0, behavior: 'instant' });
   } catch (err) {
+    if (err.auth) {
+      authed = false;
+      me = null;
+      return router();
+    }
     console.error(err);
     failure(err);
   }
+}
+
+// ── ACCOUNT: landing, sign up, log in ──────────────────────────────────────
+
+function viewAuth(mode = 'login') {
+  setTone('business');
+  const signup = mode === 'signup';
+  render(
+    `<section class="auth"><div class="auth__bg" aria-hidden="true"></div>
+      <div class="auth__brand">${wordmarkSvg({ height: 34, ink: 'var(--ink)' })}</div>
+      <div class="auth__grid">
+        <div class="auth__pitch">
+          <h1>Your own daily newspaper.<br><em>Finished in minutes.</em></h1>
+          <p>Tell Over Coffee what you care about. Each morning it reads the news, checks it, and gives you one short edition. When you reach the end, you are done.</p>
+          <p class="auth__links"><a class="textlink" href="#/read/preview-multi-10?mode=business">See a sample newspaper</a><span>·</span><a class="textlink" href="#/lab">Newspaper lab</a></p>
+        </div>
+        <form class="auth__card" novalidate>
+          <h2>${signup ? 'Create your account' : 'Welcome back'}</h2>
+          <label>Email<input type="email" name="email" autocomplete="email" inputmode="email" required></label>
+          <label>Password<input type="password" name="password" autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="8" required><small>${signup ? 'At least 8 characters.' : ''}</small></label>
+          <p class="auth__error" role="alert" hidden></p>
+          <button class="btn btn--brand" type="submit">${signup ? 'Create account' : 'Log in'}</button>
+          <p class="auth__switch">${signup ? 'Already have an account? <a href="#/login">Log in</a>' : 'New here? <a href="#/signup">Create an account</a>'}</p>
+        </form></div></section>`,
+    { title: signup ? 'Create account' : 'Log in' },
+  );
+  const form = $app.querySelector('form');
+  const $err = form.querySelector('.auth__error');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button');
+    btn.disabled = true;
+    $err.hidden = true;
+    try {
+      const f = new FormData(form);
+      const r = await (signup ? api.signup(f.get('email'), f.get('password')) : api.login(f.get('email'), f.get('password')));
+      authed = r.user;
+      me = null;
+      api.forget();
+      go('#/');
+    } catch (err) {
+      $err.textContent = err.message;
+      $err.hidden = false;
+      btn.disabled = false;
+    }
+  });
+}
+
+async function logout() {
+  await api.logout().catch(() => {});
+  navigator.serviceWorker?.controller?.postMessage('clear');
+  authed = false;
+  me = null;
+  catalog = null;
+  api.forget();
+  go('#/login');
 }
 
 window.addEventListener('hashchange', router);
@@ -312,7 +385,7 @@ async function openListen(ed, mode) {
     <div class="player">
       <div class="player__controls">
         <button class="player__play" type="button" data-play aria-label="Play">${playIcon}</button>
-        <div class="player__meta"><b>${esc(longDate(ed.editorialDate))}</b>About ${Math.max(1, Math.round(audio.seconds / 60))} minute${audio.seconds > 90 ? 's' : ''} · ${mode === 'social' ? 'Social' : 'Business'} voice${synth ? '' : ' · Your browser can’t speak; here’s the transcript'}</div>
+        <div class="player__meta"><b>${esc(longDate(ed.editorialDate))}</b>About ${Math.max(1, Math.round(audio.seconds / 60))} minute${audio.seconds > 90 ? 's' : ''} · ${mode === 'social' ? 'Conversational' : 'Business'} voice${synth ? '' : ' · Your browser can’t speak; here’s the transcript'}</div>
       </div>
       <ol class="transcript">${audio.segments.map((s, i) => `<li data-seg="${i}">${esc(s.text)}</li>`).join('')}</ol>
     </div>`,
@@ -369,7 +442,7 @@ async function viewRead([id = 'today'], query) {
   render(
     `<div class="readbar">
       <div class="readbar__left">
-        <div class="seg" role="group" aria-label="Presentation"><a href="${href('business')}" aria-current="${mode === 'business'}">Business</a><a href="${href('social')}" aria-current="${mode === 'social'}">Social</a></div>
+        <div class="seg" role="group" aria-label="Presentation"><a href="${href('business')}" aria-current="${mode === 'business'}">Business</a><a href="${href('social')}" aria-current="${mode === 'social'}">Conversational</a></div>
         <span class="readbar__note">Same edition, ${mode === 'social' ? 'friendlier voice' : 'professional voice'}.</span>
       </div>
       <div class="readbar__right">
@@ -385,9 +458,14 @@ async function viewRead([id = 'today'], query) {
   $app.querySelector('[data-listen]').addEventListener('click', () => openListen(ed, mode));
   $app.querySelector('[data-change]')?.addEventListener('click', () => openChangeToday());
   wirePaper($app, ed);
+  if (isDaily) api.track('edition_opened', { mode });
   const at = query.get('at');
-  if (at) requestAnimationFrame(() => document.getElementById(at)?.scrollIntoView({ block: 'start' }));
+  const paged = pageify($app, { edId: ed.id, mode, at, onComplete: () => isDaily && api.track('edition_completed', { mode }) });
+  if (!paged && at) requestAnimationFrame(() => document.getElementById(at)?.scrollIntoView({ block: 'start' }));
 }
+
+// Crossing the phone breakpoint switches between paged and scrolling layouts.
+window.matchMedia('(max-width: 760px)').addEventListener('change', () => location.hash.startsWith('#/read') && router());
 
 function wirePaper(root) {
   root.querySelectorAll('[data-jump]').forEach((a) =>
@@ -419,6 +497,7 @@ function wirePaper(root) {
 async function viewStory([edId, storyId], query) {
   setNav('');
   const ed = await api.edition(edId);
+  if (!String(edId).startsWith('preview-')) api.track('learn_more_opened');
   const mode = query.get('mode') === 'social' ? 'social' : 'business';
   setTone(mode);
   const html = renderStory(ed, storyId, mode);
@@ -431,6 +510,7 @@ async function viewStory([edId, storyId], query) {
 async function viewSource([edId, sourceId], query) {
   setNav('');
   const ed = await api.edition(edId);
+  if (!String(edId).startsWith('preview-')) api.track('source_opened');
   const mode = query.get('mode') === 'social' ? 'social' : 'business';
   setTone(mode);
   const html = renderSource(ed, sourceId, { mode, from: query.get('from') });
@@ -440,7 +520,7 @@ async function viewSource([edId, sourceId], query) {
 
 // ── ONBOARDING ──────────────────────────────────────────────────────────────
 
-const ob = { step: 1, topics: [], budget: 10, mode: 'business', time: '06:00', channels: ['push'], whatsapp: '' };
+const ob = { step: 1, topics: [], budget: 10, mode: 'business', time: '06:00', channels: ['email'], whatsapp: '', focus: {} };
 const SUGGEST = ['AI', 'Technology', 'Farming', 'Food', 'South Africa', 'Business', 'Renewable energy', 'Finance', 'Climate', 'Manufacturing', 'Football', 'Photography', 'Cars'];
 
 async function viewWelcome(_, query) {
@@ -459,29 +539,54 @@ async function viewWelcome(_, query) {
         <h1 class="ob__q">What do you want to <em>know about?</em></h1>
         <p class="ob__hint">Write it the way you’d say it. Broad is fine — we’ll work out the details.</p>
         <form class="ob__input" data-form><input data-input placeholder="e.g. artificial intelligence, farming, South Africa" autocomplete="off" aria-label="Add a topic"><button type="submit">Add</button></form>
-        <div class="ob__chosen"><div class="chips" data-chosen></div><p class="ob__expansion" data-expansion></p></div>
+        <div class="ob__chosen"><div class="chips" data-chosen></div><div class="areas" data-areas hidden></div></div>
         <p class="ob__suggest-h">Or start with</p>
         <div class="chips" data-suggest></div>
       </div>${nav(false, true)}</div>`,
       { title: 'Welcome' },
     );
     const $chosen = $app.querySelector('[data-chosen]');
-    const $exp = $app.querySelector('[data-expansion]');
+    const $areas = $app.querySelector('[data-areas]');
     const $suggest = $app.querySelector('[data-suggest]');
     const $next = $app.querySelector('[data-next]');
     const paint = (last) => {
       $chosen.innerHTML = ob.topics.map((t) => `<button class="chip" type="button" aria-pressed="true" data-remove="${esc(t.id)}">${esc(t.label)} <span class="chip__x" aria-label="Remove">×</span></button>`).join('');
       $suggest.innerHTML = SUGGEST.filter((s) => !ob.topics.some((t) => t.label.toLowerCase() === s.toLowerCase())).map((s) => `<button class="chip chip--dim" type="button" data-add="${esc(s)}">+ ${esc(s)}</button>`).join('');
-      const t = last || ob.topics.at(-1);
-      $exp.innerHTML = t ? `<b>${esc(t.label)}</b>${t.custom ? ' (new to us — we’ll research it as it comes)' : ''}: we’ll follow ${esc(t.expansion.join(', ').toLowerCase())}.` : '';
+      paintAreas(last || ob.topics.at(-1));
       $next.disabled = !ob.topics.length;
       $chosen.querySelectorAll('[data-remove]').forEach((b) => b.addEventListener('click', () => ((ob.topics = ob.topics.filter((x) => x.id !== b.dataset.remove)), paint())));
       $suggest.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', () => add(b.dataset.add)));
     };
+    // Suggested areas inside a topic: pick any, add your own, or just follow the broad topic.
+    const paintAreas = (t) => {
+      if (!t) { $areas.hidden = true; return; }
+      const all = t.areas || t.expansion;
+      const picked = (ob.focus[t.id] ||= all.slice(0, 6));
+      $areas.hidden = false;
+      $areas.innerHTML = `<div class="areas__head"><b>${esc(t.label)}</b><span>${t.loading ? 'Finding the useful areas…' : 'Which areas matter to you? Leave all on, or follow just the broad topic.'}</span></div>
+        <div class="chips">${all.map((a) => `<button type="button" class="chip" data-area="${esc(a)}" aria-pressed="${picked.includes(a)}">${esc(a)}</button>`).join('')}</div>
+        <div class="areas__tools"><button type="button" class="textlink" data-areas-all>Select all</button><button type="button" class="textlink" data-areas-none>Broad topic only</button><form data-area-form><input placeholder="Add an area" maxlength="40" aria-label="Add an area"><button type="submit">Add</button></form></div>`;
+      const save = () => { ob.focus[t.id] = [...$areas.querySelectorAll('[data-area][aria-pressed="true"]')].map((b) => b.dataset.area); };
+      $areas.querySelectorAll('[data-area]').forEach((b) => b.addEventListener('click', () => { b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); save(); }));
+      $areas.querySelector('[data-areas-all]').addEventListener('click', () => { ob.focus[t.id] = all.slice(); paintAreas(t); });
+      $areas.querySelector('[data-areas-none]').addEventListener('click', () => { ob.focus[t.id] = []; paintAreas(t); });
+      $areas.querySelector('[data-area-form]').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const v = e.target.querySelector('input').value.trim().slice(0, 40);
+        if (v && !all.includes(v)) { t.areas = [...all, v]; ob.focus[t.id] = [...(ob.focus[t.id] || []), v]; }
+        paintAreas(t);
+      });
+    };
     const add = async (text) => {
       for (const part of String(text).split(/,|\band\b/).map((s) => s.trim()).filter(Boolean)) {
         const { topic } = await api.interpret(part);
-        if (topic && !ob.topics.some((t) => t.id === topic.id)) ob.topics.push(topic);
+        if (topic && !ob.topics.some((t) => t.id === topic.id)) {
+          ob.topics.push(topic);
+          // Ask the topic engine for genuinely useful areas (model when available).
+          topic.loading = true;
+          paint(topic);
+          api.suggest(part).then((r) => { if (r.areas?.length) { topic.areas = r.areas; delete ob.focus[topic.id]; } }).catch(() => {}).finally(() => { topic.loading = false; paint(topic); });
+        }
       }
       paint();
     };
@@ -530,7 +635,7 @@ async function viewWelcome(_, query) {
     render(
       `<div class="ob">${progress}<div class="ob__body">
         <h1 class="ob__q">How should it <em>sound?</em></h1>
-        <p class="ob__hint">The same facts, sources and caveats either way. Only the voice changes — and you can switch any morning.</p>
+        <p class="ob__hint">Examples below are illustrative. The same facts, sources and caveats either way. Only the voice changes — and you can switch any morning.</p>
         <div class="modes">
           <button class="mode-card" type="button" data-mode="business" aria-pressed="${ob.mode === 'business'}">
             <div class="mode-card__sample mode-card__sample--b"><span class="k">Harvest outlook</span><h4>A dry September cuts the wheat forecast by 7%</h4><p>The National Grain Council now expects 24.6 million tonnes. Millers and bakers are watching.</p></div>
@@ -538,7 +643,7 @@ async function viewWelcome(_, query) {
           </button>
           <button class="mode-card" type="button" data-mode="social" aria-pressed="${ob.mode === 'social'}">
             <div class="mode-card__sample mode-card__sample--s"><span class="k">The big one today</span><h4>A dry September just shrank the wheat harvest</h4><p>Bakers say it could reach your bread. Slowly.</p></div>
-            <div class="mode-card__label"><b>Social</b><span>Simple words, big energy, like a friend with the tea. Just as accurate.</span></div>
+            <div class="mode-card__label"><b>Conversational</b><span>Simple words, big energy, like a friend with the tea. Just as accurate.</span></div>
           </button>
         </div>
       </div>${nav(true, true)}</div>`,
@@ -607,6 +712,7 @@ async function viewWelcome(_, query) {
     budgetMinutes: ob.budget,
     mode: ob.mode,
     delivery: { time: ob.time, channels: ob.channels, whatsapp: ob.whatsapp },
+    focus: ob.focus,
   });
   api.forget();
   await refreshMe();
@@ -711,7 +817,7 @@ async function viewSettings() {
       <p class="lede">A few choices are yours. The rest — what matters, how much, in what order — is the editor’s job.</p>
       <section class="panel">
         ${row('Reading time', 'A budget, not a quota.', seg('budgetMinutes', [[5, '5 min'], [10, '10 min'], [20, '20 min']], p.budgetMinutes))}
-        ${row('Voice', 'Business or Social. Switching never re-researches your edition.', seg('mode', [['business', 'Business'], ['social', 'Social']], p.mode))}
+        ${row('Voice', 'Business or Conversational. Switching never re-researches your edition.', seg('mode', [['business', 'Business'], ['social', 'Conversational']], p.mode))}
         ${row('Discovery', 'How often the editor brings in something adjacent to your interests.', seg('discovery', [['off', 'Never'], ['occasionally', 'Now and then'], ['often', 'Often']], p.discovery))}
         ${row('PDF', 'Paper size for printing.', seg('pdf.paper', [['A4', 'A4'], ['Letter', 'Letter']], p.pdf?.paper || 'A4'))}
         ${row('Audio summary', 'A short spoken version of each edition.', seg('audio.enabled', [[true, 'On'], [false, 'Off']], p.audio?.enabled !== false))}
@@ -732,11 +838,13 @@ async function viewSettings() {
       </div>
 
       <section class="panel" style="margin-top:44px">
+        <div class="setting"><div class="setting__label"><h3>Account</h3><p>${esc(me.user?.email || '')}</p></div><div><button class="btn btn--small btn--ghost" type="button" data-logout>Log out</button></div></div>
         <div class="setting"><div class="setting__label"><h3>Start over</h3><p>Replay the welcome and choose your topics again.</p></div><div><button class="textlink" type="button" data-reset>Start over</button></div></div>
       </section>
     </div>`,
     { title: 'Settings' },
   );
+  $app.querySelector('[data-logout]')?.addEventListener('click', logout);
   const patch = async (key, raw) => {
     const value = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? Number(raw) : raw;
     const [a, b] = key.split('.');
@@ -806,9 +914,10 @@ async function viewDownload() {
       <p class="eyebrow">Download</p>
       <h1>Take it <em class="grad-text" style="font-family:var(--accent-serif);font-weight:400">with you.</em></h1>
       <p class="lede">The same edition as a printable newspaper, a short listen, or a ping in your pocket.</p>
+      <div class="dl dl--install"><h3>Install Over Coffee</h3><p>Put it on your home screen and it opens like an app, full screen, and your last edition still works offline.</p><div class="dl__actions"><button class="btn btn--small btn--brand" type="button" data-install hidden>Install app</button></div><p class="dl__hint">iPhone: tap Share, then “Add to Home Screen”. Android and desktop Chrome: use the Install button above or the browser menu.</p></div>
       <div class="dl-grid">
         <div class="dl"><h3>Newspaper PDF · Business</h3><p>Set for paper. ${ed.stats.readingMinutes.business}-minute read.</p><div class="dl__actions"><a class="btn btn--small" href="/api/editions/${esc(ed.id)}/pdf?mode=business" target="_blank" rel="noopener">Open PDF</a><a class="textlink" href="/api/editions/${esc(ed.id)}/pdf?mode=business&download=1">Save</a></div></div>
-        <div class="dl"><h3>Newspaper PDF · Social</h3><p>The friendly edition, printable. ${ed.stats.readingMinutes.social}-minute read.</p><div class="dl__actions"><a class="btn btn--small" href="/api/editions/${esc(ed.id)}/pdf?mode=social" target="_blank" rel="noopener">Open PDF</a><a class="textlink" href="/api/editions/${esc(ed.id)}/pdf?mode=social&download=1">Save</a></div></div>
+        <div class="dl"><h3>Newspaper PDF · Conversational</h3><p>The friendly edition, printable. ${ed.stats.readingMinutes.social}-minute read.</p><div class="dl__actions"><a class="btn btn--small" href="/api/editions/${esc(ed.id)}/pdf?mode=social" target="_blank" rel="noopener">Open PDF</a><a class="textlink" href="/api/editions/${esc(ed.id)}/pdf?mode=social&download=1">Save</a></div></div>
         <div class="dl"><h3>Audio summary</h3><p>About ${plural(Math.max(1, Math.round(ed.audio[m].seconds / 60)), 'minute')}. For the drive, the walk or the kitchen.</p><div class="dl__actions"><button class="btn btn--small btn--ghost" type="button" data-listen>▶ Listen</button></div></div>
         <div class="dl"><h3>Morning ping</h3><p>Push, WhatsApp and email teasers for today’s edition, in your ${m} voice.</p><div class="dl__actions"><button class="btn btn--small btn--ghost" type="button" data-deliver>Prepare today’s ping</button><a class="textlink" href="/email/${esc(ed.id)}?mode=${m}" target="_blank" rel="noopener">Preview the email</a></div></div>
       </div>
@@ -840,17 +949,18 @@ async function viewCompare(_, query) {
   const mode = query.get('mode') === 'social' ? 'social' : 'business';
   const minutes = [5, 10, 20].includes(Number(query.get('m'))) ? Number(query.get('m')) : 10;
   const view = ['one', 'modes', 'topics'].includes(query.get('view')) ? query.get('view') : 'one';
+  const dev = query.get('dev') === 'mobile' ? 'mobile' : 'desktop';
   setTone(view === 'one' ? mode : 'business');
   loading('Preparing the four editions…');
   const { single, multi } = await api.previews(minutes);
   const eds = { single, multi };
   const link = (o) => {
-    const q = new URLSearchParams({ set, mode, m: minutes, view, ...o });
-    return `#/compare?${q}`;
+    const q = new URLSearchParams({ set, mode, m: minutes, view, dev, ...o });
+    return `#/lab?${q}`;
   };
   const cell = (n, s, md) => {
     const e = eds[s];
-    return `<a class="cmp-cell" href="${link({ set: s, mode: md, view: 'one' })}" aria-current="${view === 'one' && set === s && mode === md}"><b>Preview ${n}</b><span>${s === 'single' ? 'AI' : 'AI · Food · Farming'} — ${md === 'business' ? 'Business' : 'Social'}</span><small>${plural(e.stories.length, 'story', 'stories')} · ${e.stats.readingMinutes[md]}-minute read</small></a>`;
+    return `<a class="cmp-cell" href="${link({ set: s, mode: md, view: 'one' })}" aria-current="${view === 'one' && set === s && mode === md}"><b>Preview ${n}</b><span>${s === 'single' ? 'AI' : 'AI · Food · Farming'} — ${md === 'business' ? 'Business' : 'Conversational'}</span><small>${plural(e.stories.length, 'story', 'stories')} · ${e.stats.readingMinutes[md]}-minute read</small></a>`;
   };
   const ed = eds[set];
   const sectionCounts = (e) =>
@@ -862,13 +972,13 @@ async function viewCompare(_, query) {
       ? `<b>One edition, two voices.</b> Both columns are the same stored edition (${esc(ed.id)}): ${ed.stats.published} stories chosen from ${ed.stats.considered} developments. Switching voice re-renders; it never re-researches or re-writes.`
       : view === 'topics'
       ? `<b>Single vs multi-topic.</b> The editor doesn’t split space evenly. Multi-topic today: ${esc(sectionCounts(multi))}. Lead: “${esc(multi.stories[0]?.copy.business.headline || '')}”.`
-      : `<b>${set === 'single' ? 'Single topic' : 'Multi-topic'} · ${mode === 'business' ? 'Business' : 'Social'} · ${minutes}-minute budget.</b> ${ed.stats.published} of ${ed.stats.considered} developments cleared the bar; the edition reads in about ${ed.stats.readingMinutes[mode]} minutes. ${set === 'multi' ? `Space by topic: ${esc(sectionCounts(ed))}.` : ''} Nothing was added to fill the budget.`;
+      : `<b>${set === 'single' ? 'Single topic' : 'Multi-topic'} · ${mode === 'business' ? 'Business' : 'Conversational'} · ${minutes}-minute budget.</b> ${ed.stats.published} of ${ed.stats.considered} developments cleared the bar; the edition reads in about ${ed.stats.readingMinutes[mode]} minutes. ${set === 'multi' ? `Space by topic: ${esc(sectionCounts(ed))}.` : ''} Nothing was added to fill the budget.`;
 
   const pairs =
     view === 'modes'
       ? [
           [ed, 'business', `Preview ${set === 'single' ? 1 : 2} · Business`],
-          [ed, 'social', `Preview ${set === 'single' ? 3 : 4} · Social`],
+          [ed, 'social', `Preview ${set === 'single' ? 3 : 4} · Conversational`],
         ]
       : view === 'topics'
       ? [
@@ -885,10 +995,11 @@ async function viewCompare(_, query) {
       <div class="cmp-matrix">
         <span class="h"></span><span class="h">Single topic</span><span class="h">Multi-topic</span>
         <span class="h">Business</span>${cell(1, 'single', 'business')}${cell(2, 'multi', 'business')}
-        <span class="h">Social</span>${cell(3, 'single', 'social')}${cell(4, 'multi', 'social')}
+        <span class="h">Conversational</span>${cell(3, 'single', 'social')}${cell(4, 'multi', 'social')}
       </div>
       <div class="cmp-controls">
-        <span><span class="field__label">Compare</span><span class="seg"><a href="${link({ view: 'one' })}" aria-current="${view === 'one'}">One at a time</a><a href="${link({ view: 'modes' })}" aria-current="${view === 'modes'}">Business vs Social</a><a href="${link({ view: 'topics' })}" aria-current="${view === 'topics'}">Single vs Multi</a></span></span>
+        <span><span class="field__label">Compare</span><span class="seg"><a href="${link({ view: 'one' })}" aria-current="${view === 'one'}">One at a time</a><a href="${link({ view: 'modes' })}" aria-current="${view === 'modes'}">Business vs Conversational</a><a href="${link({ view: 'topics' })}" aria-current="${view === 'topics'}">Single vs Multi</a></span></span>
+        <span><span class="field__label">Device</span><span class="seg"><a href="${link({ dev: 'desktop' })}" aria-current="${dev === 'desktop'}">Desktop</a><a href="${link({ dev: 'mobile', view: 'one' })}" aria-current="${dev === 'mobile'}">Phone (swipe pages)</a></span></span>
         <span><span class="field__label">Reading budget</span><span class="seg">${[5, 10, 20].map((x) => `<a href="${link({ m: x })}" aria-current="${minutes === x}">${x} min</a>`).join('')}</span></span>
       </div>
       <p class="cmp-explain">${explain}</p>
@@ -900,6 +1011,8 @@ async function viewCompare(_, query) {
               ([e, md, label]) => `<div class="cmp-pair__col"><div class="cmp-pair__label"><span>${esc(label)}</span><a href="#/read/${esc(e.id)}?mode=${md}">Open full page →</a></div><iframe title="${esc(label)}" src="/#/embed/${esc(e.id)}?mode=${md}" loading="lazy"></iframe></div>`,
             )
             .join('')}</div>`
+        : dev === 'mobile'
+        ? `<div class="lab-phone"><iframe title="Phone preview" src="/#/embed/${esc(ed.id)}?mode=${mode}" width="390" height="780"></iframe><p class="lab-phone__note">390 × 780 · swipe sideways for pages, scroll down within a page. <a href="/api/editions/${esc(ed.id)}/pdf?mode=${mode}" target="_blank" rel="noopener">Open PDF</a></p></div>`
         : `<div class="readbar"><div class="readbar__left"><span class="readbar__note">Preview ${set === 'single' ? (mode === 'business' ? 1 : 3) : mode === 'business' ? 2 : 4} of 4</span></div><div class="readbar__right"><a class="tool" href="/api/editions/${esc(ed.id)}/pdf?mode=${mode}" target="_blank" rel="noopener">PDF</a><a class="tool" href="#/edition/${esc(ed.id)}?mode=${mode}">How it was made</a></div></div>${renderNewspaper(ed, mode)}`
     }`,
     { title: 'Prototype editions' },
@@ -913,6 +1026,7 @@ async function viewEmbed([id], query) {
   setTone(mode);
   render(renderNewspaper(ed, mode));
   wirePaper($app, ed);
+  pageify($app, { edId: ed.id, mode, hint: false });
   // Links inside an embedded preview open in the full app.
   $app.querySelectorAll('a[href^="#/"]').forEach((a) => (a.target = '_top', (a.href = '/' + a.getAttribute('href'))));
 }
@@ -933,7 +1047,7 @@ async function viewEdition([id], query) {
       <p class="lede">Every edition is stored with its research snapshot, editorial decisions, sources and quality checks, so it can be inspected, audited or regenerated.</p>
       <p class="block__note" style="margin-top:-18px">Edition <b>${esc(ed.id)}</b> · ${esc(longDate(ed.editorialDate))} · engine ${esc(ed.engineVersion)} · research: ${esc(ed.research.adapter)}${ed.sample ? ' (sample corpus)' : ''}, cache ${ed.research.cache.hits.length} hit / ${ed.research.cache.misses.length} miss · ${ed.config.budgetMinutes}-minute budget, bar ${ed.editorial.bar.toFixed(2)} · <a href="/api/editions/${esc(ed.id)}" target="_blank" rel="noopener">edition object (JSON)</a> · <a href="#/read/${esc(ed.id)}?mode=${mode}">read the edition</a></p>
 
-      <section class="block"><h2 class="block__h">The pipeline</h2><p class="block__note">One research pass. Business, Social, web, PDF and audio all render from the result.</p>
+      <section class="block"><h2 class="block__h">The pipeline</h2><p class="block__note">One research pass. Business, Conversational, web, PDF and audio all render from the result.</p>
         <ol class="pipeline">${ed.pipeline.map((s) => `<li><b>${s.number}</b><span>${esc(s.label)}</span><span>${esc(s.note || '')}</span></li>`).join('')}</ol>
       </section>
 
@@ -960,3 +1074,26 @@ async function viewEdition([id], query) {
     { title: 'Edition record' },
   );
 }
+
+
+// ── PWA: service worker + install prompt ───────────────────────────────────
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+let installEvent = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installEvent = e;
+  document.querySelectorAll('[data-install]').forEach((b) => (b.hidden = false));
+});
+window.addEventListener('appinstalled', () => {
+  installEvent = null;
+  api.track('pwa_installed');
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-install]');
+  if (b && installEvent) {
+    installEvent.prompt();
+    installEvent = null;
+    b.hidden = true;
+  }
+});

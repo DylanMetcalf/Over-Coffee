@@ -455,3 +455,11 @@ body.is-embed .paper { padding-top: 14px; }
 .lab-phone__note { margin: 0; font: 500 13px/1.4 var(--mono); color: var(--muted); }
 body.is-embed .pager { height: calc(100dvh - 64px - env(safe-area-inset-bottom)); }
 @media (max-width: 760px) { .lab-phone iframe { width: 100%; max-width: 390px; } }
+@media (max-width: 760px) {
+  .readbar-tools { margin: 24px 0 8px; padding: 18px; border-radius: 20px; background: var(--bg-soft); }
+  .readbar-tools h3 { margin: 0 0 12px; font: 600 11px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .readbar-tools .readbar__right { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pg__in .sample-banner { padding: 8px 12px; }
+  .pg__in .sample-banner span { display: none; }
+  .pg__in .readbar { margin-bottom: 8px; }
+}

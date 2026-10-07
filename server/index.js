@@ -280,7 +280,7 @@ export function createApp({ store = new Store() } = {}) {
     let file = store.getArtifact(ed.id, 'pdf', mode);
     if (!file) {
       try {
-        file = await renderPdf({ url: `http://127.0.0.1:${PORT}/print/${ed.id}?mode=${mode}&k=${printToken(ed.id)}`, outFile: path.resolve('data/artifacts', `${ed.id}-${mode}.pdf`) });
+        file = await renderPdf({ url: `http://127.0.0.1:${PORT}/print/${ed.id}?mode=${mode}&k=${printToken(ed.id)}`, outFile: path.resolve(process.env.OC_DATA || 'data', 'artifacts', `${ed.id}-${mode}.pdf`) });
         store.putArtifact(ed.id, 'pdf', mode, file);
       } catch (err) {
         if (err.code === 'NO_CHROME') return { redirect: `/print/${ed.id}?mode=${mode}&autoprint=1&k=${printToken(ed.id)}` };
@@ -330,12 +330,12 @@ export function createApp({ store = new Store() } = {}) {
         if (local.getHours() * 60 + local.getMinutes() < h * 60 + m) continue;
         const wanted = (p.delivery?.channels || []).filter((c) => ['email', 'whatsapp', 'push'].includes(c));
         const exists = store.latestEdition(user, today(user));
-        if (exists && wanted.every((c) => { const d = store.getDelivery(user, exists.id, c); return d && (d.status === 'sent' || d.attempts >= MAX_ATTEMPTS); })) continue;
+        if (exists && wanted.every((c) => { const d = store.getDelivery(user, exists.id, c); return d && (d.status === 'sent' || d.status === 'outbox' || d.attempts >= MAX_ATTEMPTS); })) continue;
         const ed = exists || (await todaysEdition(user));
         const pending = wanted.filter((c) => { const d = store.getDelivery(user, ed.id, c); return !d || (d.status === 'failed' && d.attempts < MAX_ATTEMPTS); });
         if (!pending.length) continue;
         const results = await deliver({ edition: ed, profile: { ...p, email: store.accountById(user)?.email }, baseUrl: BASE_URL, channels: pending });
-        for (const c of pending) store.recordDelivery(user, ed.id, c, results[c]?.error ? 'failed' : 'sent', results[c]?.error || results[c]?.status || null);
+        for (const c of pending) store.recordDelivery(user, ed.id, c, results[c]?.error ? 'failed' : results[c]?.status === 'outbox' ? 'outbox' : 'sent', results[c]?.error || null);
       } catch (e) {
         console.error('[scheduler]', user, e.message);
       }
@@ -414,7 +414,13 @@ function readJson(req) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const app = createApp();
   http.createServer(app.handler).listen(PORT, HOST, () => {
+    const writer = process.env.OC_WRITER === 'claude' && process.env.ANTHROPIC_API_KEY ? 'Claude' : 'extractive (no model)';
     console.log(`\n  OVER COFFEE  ·  ${BASE_URL}\n  Good morning. Here’s what matters.\n`);
+    console.log(`  research: ${process.env.OC_RESEARCH || 'sample'} · writer: ${writer} · triage: ${process.env.ANTHROPIC_API_KEY ? 'model' : 'heuristic'} · email: ${process.env.RESEND_API_KEY ? 'Resend' : 'outbox files only'} · pdf: ${findChrome() ? 'ok' : 'no Chromium'}`);
+    if (process.env.NODE_ENV === 'production') {
+      if (!process.env.OC_BASE_URL) console.warn('  ! OC_BASE_URL is not set: links in emails will point at localhost.');
+      if (!process.env.ANTHROPIC_API_KEY) console.warn('  ! ANTHROPIC_API_KEY is not set: editions will use plain extractive copy.');
+    }
   });
   setInterval(app.tick, 60_000);
 }

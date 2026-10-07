@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 const require = createRequire(process.env.PW_PATH || '/opt/node22/lib/node_modules/');
 const { chromium, devices } = require('playwright');
 
-const BASE = process.argv[2] || 'http://localhost:4321';
+const BASE = process.argv[2] || process.env.OC_URL || 'http://localhost:4321';
 const CHROME = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const results = [];
 const check = async (group, name, fn) => {

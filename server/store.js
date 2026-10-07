@@ -131,7 +131,7 @@ CREATE TABLE IF NOT EXISTS artifacts (
 `;
 
 export class Store {
-  constructor(file = process.env.OC_DB || path.resolve('data/over-coffee.db')) {
+  constructor(file = process.env.OC_DB || path.resolve(process.env.OC_DATA || 'data', 'over-coffee.db')) {
     if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
     this.db = new DatabaseSync(file);
     this.db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');

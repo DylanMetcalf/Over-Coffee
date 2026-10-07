@@ -76,7 +76,7 @@ export function whatsappPayload({ edition, mode, baseUrl, number }) {
  * Deliver an edition to the reader's chosen channels. Writes inspectable
  * files; returns what was prepared for each channel.
  */
-export async function deliver({ edition, profile, baseUrl, channels, outDir = path.resolve('data/outbox') }) {
+export async function deliver({ edition, profile, baseUrl, channels, outDir = path.resolve(process.env.OC_DATA || 'data', 'outbox') }) {
   const mode = profile.mode || 'business';
   const wanted = channels || profile.delivery?.channels || [];
   fs.mkdirSync(outDir, { recursive: true });

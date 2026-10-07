@@ -22,13 +22,13 @@ function pageKey(el, mode, uid) {
     if (c.contains('sec--quiet')) return ['quiet', 'Quiet today'];
     if (c.contains('sec')) return ['sec-' + el.id, el.querySelector('.sec__title')?.textContent || 'Section'];
     if (c.contains('quiet-day')) return ['front', 'Front page'];
-    if (c.contains('colophon')) return ['end', 'Done'];
+    if (c.contains('colophon') || c.contains('readbar-tools')) return ['end', 'Done'];
   } else {
     if (c.contains('readbar') || c.contains('sample-banner') || c.contains('s-mast') || c.contains('s-tldr')) return ['front', 'Front page'];
     if (c.contains('s-card--lead') || c.contains('s-quietday')) return ['lead', 'The big one'];
-    if (c.contains('row') || c.contains('s-card')) return ['row-' + uid, 'More stories'];
+    if (c.contains('row') || c.contains('s-card')) return ['row-' + uid, el.querySelector('.s-topic')?.textContent?.trim() || 'More stories'];
     if (c.contains('s-quietnote') || c.contains('s-quiz')) return ['extras', 'Quiz'];
-    if (c.contains('s-remember') || c.contains('colophon')) return ['end', 'Done'];
+    if (c.contains('s-remember') || c.contains('colophon') || c.contains('readbar-tools')) return ['end', 'Done'];
   }
   return ['row-' + uid, 'More'];
 }
@@ -45,6 +45,16 @@ export function pageify(root, { edId, mode, at = null, onComplete = () => {}, hi
   const index = new Map();
   let uid = 0;
   const nodes = [...(readbar ? [readbar] : []), ...paper.children];
+  // Keep the page news-first: the voice switch stays on top, the tools move to the last page.
+  const tools = readbar?.querySelector('.readbar__right');
+  if (tools) {
+    const box = document.createElement('div');
+    box.className = 'readbar-tools';
+    box.innerHTML = '<h3>Tools</h3>';
+    box.appendChild(tools);
+    const at = nodes.findIndex((n) => n.classList?.contains('colophon'));
+    nodes.splice(at < 0 ? nodes.length : at, 0, box);
+  }
   for (const el of nodes) {
     const k = pageKey(el, mode, ++uid);
     if (!k) { el.remove(); continue; }

@@ -1,0 +1,28 @@
+# Fly.io: `fly launch --no-deploy --copy-config`, then the secrets below, then `fly deploy`.
+app = "over-coffee"          # change if taken
+primary_region = "jnb"       # Johannesburg; use "lhr" or "iad" if you prefer
+
+[build]
+
+[env]
+  PORT = "8080"
+  OC_DATA = "/data"
+  OC_RESEARCH = "rss"
+  OC_WRITER = "claude"
+  # OC_BASE_URL is set from your real domain, see docs/LAUNCH.md
+
+[[mounts]]
+  source = "oc_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"     # the scheduler must stay awake to prepare editions
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1

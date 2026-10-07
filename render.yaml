@@ -1,0 +1,18 @@
+# Render.com alternative: New → Blueprint → point at this repo.
+services:
+  - type: web
+    name: over-coffee
+    runtime: docker
+    plan: starter
+    healthCheckPath: /healthz
+    disk: { name: oc-data, mountPath: /data, sizeGB: 1 }
+    envVars:
+      - { key: OC_RESEARCH, value: rss }
+      - { key: OC_WRITER, value: claude }
+      - { key: OC_DATA, value: /data }
+      - { key: OC_BASE_URL, sync: false }      # https://your-domain
+      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: RESEND_API_KEY, sync: false }
+      - { key: OC_EMAIL_FROM, sync: false }
+      - { key: OC_ADMIN_TOKEN, generateValue: true }
+      - { key: OC_SECRET, generateValue: true }

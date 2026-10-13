@@ -1,0 +1,216 @@
+{
+  "at": "2026-10-07T20:18:35.030Z",
+  "base": "http://localhost:4321",
+  "results": [
+    {
+      "group": "Core",
+      "name": "Landing page for logged-out visitor",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Logged-out visitor cannot reach the app API",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Sample newspaper readable without account",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Signup rejects weak password with a clear message",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Signup",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Duplicate email is refused",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Natural-language topic is understood (custom topic added)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Topic areas shown; Select all / Broad only / add-own work",
+      "status": "PASS",
+      "detail": "4 areas (fallback)"
+    },
+    {
+      "group": "Core",
+      "name": "Add and remove topics",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Reading time, edition style and delivery steps",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Edition",
+      "name": "First edition generates from onboarding",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Home shows today's edition and links to the paper",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Newspaper opens as pages with page indicator",
+      "status": "PASS",
+      "detail": "5 pages"
+    },
+    {
+      "group": "Reading",
+      "name": "Horizontal swipe turns the page",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Vertical scroll reads within a page without turning it",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Next-page button and bar controls work",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Learn more opens the story/source layer",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Sources are grouped with names (not raw URL dump)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Back returns to the same newspaper page",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Position survives a reload",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Last page reached (edition is finite)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Design",
+      "name": "Phone: no horizontal page overflow",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Design",
+      "name": "Conversational edition renders",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "PWA",
+      "name": "Manifest valid with icons, standalone, start_url",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "PWA",
+      "name": "Service worker active and controlling",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "PWA",
+      "name": "Apple touch icon + theme meta present",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "PWA",
+      "name": "Offline: app shell and last edition still open",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Edition",
+      "name": "PDF generates and has pages and text",
+      "status": "PASS",
+      "detail": "3 pages"
+    },
+    {
+      "group": "Edition",
+      "name": "Quality gate recorded and edition has sources",
+      "status": "PASS",
+      "detail": "quality pass, 3 stories, 23 sources, SAMPLE data"
+    },
+    {
+      "group": "Design",
+      "name": "Desktop: newspaper renders as scrolling layout without pager",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Login works on a second device; settings change persists",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Change today: random topic and adventurous options exist",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Logout ends the session; protected API refuses",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Another account cannot read this reader's edition",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "No JavaScript errors during the run",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

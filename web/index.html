@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Over Coffee</title>
+<meta name="description" content="Over Coffee — your personal daily newspaper. A few minutes. Everything worth knowing.">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Over Coffee">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/css/fonts.css">
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/paper.css">
+<link rel="stylesheet" href="/css/social.css">
+<link rel="stylesheet" href="/css/base.css">
+</head>
+<body>
+<header class="topbar" id="topbar">
+  <a class="brand" href="#/" aria-label="Over Coffee — today"><span>Over Coffee</span></a>
+  <nav class="nav" aria-label="Main">
+    <a href="#/" data-nav="today">Today</a>
+    <a href="#/topics" data-nav="topics">My topics</a>
+    <a href="#/settings" data-nav="settings">Settings</a>
+    <a href="#/download" data-nav="download">Download</a>
+  </nav>
+  <div class="topbar__right"><span class="pill" id="datepill"></span></div>
+</header>
+<main id="app" tabindex="-1"></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

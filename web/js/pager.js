@@ -15,6 +15,7 @@ export const isPhone = () => window.matchMedia('(max-width: 760px)').matches;
 
 function pageKey(el, mode, uid) {
   const c = el.classList;
+  if (c.contains('sponsored')) return ['sp-' + uid, 'Sponsored'];
   if (mode === 'business') {
     if (c.contains('readbar') || c.contains('sample-banner') || c.contains('mast') || c.contains('hero') || c.contains('figures')) return ['front', 'Front page'];
     if (c.contains('lead-body') || c.contains('brief')) return ['lead', 'The lead'];

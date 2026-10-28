@@ -57,3 +57,18 @@ test('feedback nudges relevance and can be cleared; saved stories round-trip', (
   store.clearPersonalisation('u');
   assert.equal(store.listMemory('u').length + store.feedbackFor('u').length, 0);
 });
+
+test('migration: an existing database keeps its accounts, profiles and editions and gains the plan column', async () => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const os = await import('node:os'); const path = await import('node:path'); const fs = await import('node:fs');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'oc-mig-')), 'old.db');
+  const old = new DatabaseSync(file);
+  old.exec("CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, created_at TEXT NOT NULL); CREATE TABLE accounts (user_id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, pw_hash TEXT NOT NULL, created_at TEXT NOT NULL); CREATE TABLE profiles (user_id TEXT PRIMARY KEY, json TEXT NOT NULL, updated_at TEXT NOT NULL);");
+  old.exec("INSERT INTO users VALUES ('u1','a','2026-01-01'); INSERT INTO accounts VALUES ('u1','a@b.com','h','2026-01-01'); INSERT INTO profiles VALUES ('u1','{\"topics\":[\"ai\"],\"onboarded\":true}','2026-01-01');");
+  old.close();
+  const s = new Store(file);
+  assert.equal(s.planOf('u1'), 'free');
+  assert.deepEqual(s.getProfile('u1').topics, ['ai']);
+  assert.equal(s.accountByEmail('a@b.com').userId, 'u1');
+  new Store(file); // idempotent
+});

@@ -52,7 +52,26 @@ function moreLink(ctx, story, label) {
     const url = `${opts.baseUrl || ''}/s/${ed.id}/${story.id}${mode === 'social' ? '?m=s' : ''}`;
     return `<a class="more more--print" href="${esc(url)}">${esc(label)} <span class="more__url">${esc(url.replace(/^https?:\/\//, ''))}</span></a>`;
   }
-  return `<a class="more" href="#/story/${esc(ed.id)}/${esc(story.id)}?mode=${mode}">${esc(label)}${ARROW}</a>`;
+  const key = `${ed.id}/${story.id}`;
+  const saved = !!opts.saved?.has(key);
+  const save = ed.kind === 'daily' ? `<button type="button" class="save" data-save="${esc(key)}" aria-pressed="${saved}" aria-label="${saved ? 'Saved' : 'Save this story'}" title="${saved ? 'Saved' : 'Save for later'}"><svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M2.5 1.5h11v15l-5.5-3.8-5.5 3.8z" fill="${saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>` : '';
+  return `<span class="more-wrap"><a class="more" href="#/story/${esc(ed.id)}/${esc(story.id)}?mode=${mode}">${esc(label)}${ARROW}</a>${save}</span>`;
+}
+
+/** What changed since this story last ran. Only source-grounded text; never invented. */
+function devNote(story) {
+  const d = story.development;
+  if (!d) return '';
+  const when = new Date(d.since + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const text = d.changes?.[0] || 'Still developing. No new reporting since we last covered it.';
+  return `<p class="dev"><b>Update since ${esc(when)}</b> ${esc(text)}</p>`;
+}
+
+/** Sponsored placement: always labelled, visually apart from editorial, never in the stored edition. */
+function sponsoredBlock(ctx) {
+  const sp = ctx.opts.sponsored;
+  if (!sp || ctx.print) return '';
+  return `<aside class="sponsored" aria-label="Sponsored" data-sponsored="${esc(sp.id)}"><span class="sponsored__label">${esc(sp.label || 'Sponsored')} · ${esc(sp.advertiser)}</span><h3>${esc(sp.headline)}</h3>${sp.body ? `<p>${esc(sp.body)}</p>` : ''}<a href="${esc(sp.href)}" rel="sponsored noopener" target="_blank">Learn more</a></aside>`;
 }
 
 function chartFor(ctx, story) {
@@ -128,7 +147,7 @@ ${sampleBanner(ctx)}
 ${businessMasthead(ctx)}
 ${lead ? businessHero(ctx) + keyFigures(ctx) + leadBody(ctx) + briefBand(ctx) : quietDay(ctx)}
 ${ctx.print ? '' : jumpNav(ctx)}
-${ctx.print ? printFlow(ctx) : ed.sections.map((sec) => businessSection(ctx, sec)).join('')}
+${ctx.print ? printFlow(ctx) : ed.sections.map((sec, i) => businessSection(ctx, sec) + (i === 0 ? sponsoredBlock(ctx) : '')).join('')}
 ${colophon(ctx)}
 </div>`;
 }
@@ -160,6 +179,7 @@ function businessHero(ctx) {
     <div class="kicker-row"><span class="kicker"><i class="dot"></i>${esc(lead.topicLabel)} · ${esc(c.kicker)}</span>${statusTag(ctx, lead)}</div>
     <h2 class="hero__headline">${esc(c.headline)}</h2>
     <p class="hero__dek">${esc(c.dek)}</p>
+    ${devNote(lead)}
     <div class="hero__meta"><span>Lead story</span><span>${ctx.ed.events.find((e) => e.id === lead.eventId)?.sourceIds.length || 0} sources</span><span>${ctx.print ? 'Full story below' : `<a href="#${esc(lead.id)}-body" data-jump="${esc(lead.id)}-body">Read the full story ↓</a>`}</span></div>
   </article>
   <div class="hero__visual"><div class="art art--hero">${illustrationSvg(lead, { cls: 'ill--hero' })}</div>${stat}</div>
@@ -266,7 +286,7 @@ function businessCard(ctx, story, variant) {
   const text = `<div class="card__text">
     <div class="kicker-row"><span class="kicker"><i class="dot"></i>${esc(c.kicker)}</span>${statusTag(ctx, story)}</div>
     <h3 class="card__headline">${esc(c.headline)}</h3>
-    ${c.dek ? `<p class="dek">${esc(c.dek)}</p>` : ''}
+    ${c.dek ? `<p class="dek">${esc(c.dek)}</p>` : ''}${devNote(story)}
     <div class="prose">${c.body.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
     ${!visual && !brief && chart ? chart : ''}
     ${visual ? '' : callouts}
@@ -309,7 +329,7 @@ function social(ctx) {
 ${sampleBanner(ctx)}
 ${socialMasthead(ctx)}
 ${order.length ? socialTldr(ctx) : ''}
-${lead ? socialCard(ctx, lead, 0, 'lead') : `<section class="s-quietday"><h2>Honestly? <em>Nothing happened.</em></h2><p>Nothing in ${ed.topics.map((t) => esc(t.label)).join(', ')} was worth your time today. Enjoy the quiet.</p></section>`}
+${lead ? socialCard(ctx, lead, 0, 'lead') + sponsoredBlock(ctx) : `<section class="s-quietday"><h2>Honestly? <em>Nothing happened.</em></h2><p>Nothing in ${ed.topics.map((t) => esc(t.label)).join(', ')} was worth your time today. Enjoy the quiet.</p></section>`}
 ${ctx.print ? `<div class="flow">${rest.map((s, i) => socialCard(ctx, s, i + 1, 'std')).join('')}</div>` : inRows(rest, 2, (s) => socialCard(ctx, s, order.indexOf(s), 'std'))}
 ${socialQuiet(ctx)}
 ${socialQuiz(ctx)}
@@ -351,7 +371,7 @@ function socialCard(ctx, story, i, variant) {
     <div class="s-meta"><span class="s-n">${String(i + 1).padStart(2, '0')}</span><span class="s-topic">${esc(story.topicLabel)}</span>${statusTag(ctx, story)}</div>
     <p class="s-pill">${esc(c.kicker)}</p>
     <h2 class="s-headline">${esc(c.headline)}</h2>
-    ${c.dek ? `<p class="s-dek">${esc(c.dek)}</p>` : ''}
+    ${c.dek ? `<p class="s-dek">${esc(c.dek)}</p>` : ''}${devNote(story)}
     ${c.shortVersion ? `<p class="s-short"><b>Short version:</b> ${esc(c.shortVersion)}</p>` : ''}
     <div class="prose">${c.body.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
     ${chart}

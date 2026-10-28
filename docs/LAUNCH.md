@@ -1,6 +1,6 @@
 # Over Coffee — launch guide
 
-**Version 0.2.0 (private beta).** One Node service, one SQLite file, Chromium for PDFs. Built for 10–50 real readers.
+**Version 0.3.0 (private beta).** One Node service, one SQLite file, Chromium for PDFs. Built for 10–50 real readers.
 
 ## YOU NEED TO DO THIS (shortest path)
 
@@ -32,6 +32,9 @@ Without `ANTHROPIC_API_KEY` the app still works, but editions are plain headline
 | `OC_WRITER=claude` | strongly | Turns on the model writer (set in `fly.toml`) |
 | `RESEND_API_KEY`, `OC_EMAIL_FROM` | for email | Real email delivery. Without them, emails are written to `/data/outbox` only |
 | `OC_RESEARCH=rss` | set by Docker | Live research. `sample` = fictional demo data |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | for push | Browser notifications. Generate once: `npx web-push generate-vapid-keys`; subject is `mailto:you@yourdomain`. Without them the notification toggle is simply not shown |
+| `OC_ADS=on` | optional | Allows sponsored placements. Off by default; with no active campaign nothing renders (see `COMMERCIAL.md`) |
+| `OC_PLANS_JSON` | optional | Override plan entitlements once pricing is decided |
 | `OC_ADMIN_TOKEN` | optional | `GET /api/admin/stats` with header `x-admin-token` shows launch signals |
 | `OC_SECRET` | recommended | Signs PDF render tokens (random per start if unset) |
 | `OC_TRIAGE_MODEL`, `OC_WRITER_MODEL` | optional | Override cheap/strong models (defaults: Haiku 4.5 for triage and suggestions, Opus 5.5 for writing) |
@@ -45,7 +48,8 @@ It opens full screen with the Over Coffee icon; the last edition you opened stil
 ### What is real and what is not
 - **Real:** accounts, per-reader isolation, onboarding, live research from the open web for any topic, model triage/writing (with a key), Business + Conversational voices, phone page-swipe reading, depth layer with sources, PDF, email (with Resend), PWA + offline, quality gate, analytics.
 - **Sample only:** the *Newspaper lab* and logged-out sample paper use fictional data and are labelled so.
-- **Not built (deferred):** web push, WhatsApp delivery, audio file (the listen button uses the device voice), password reset by email, account deletion UI, payments.
+- **Built, needs your configuration to verify in production:** web push (needs VAPID keys, HTTPS, a real browser; code and subscription handling are tested with a stub push service), email delivery (needs Resend), sponsored placements (needs campaigns).
+- **Not built (deferred):** WhatsApp/SMS delivery, audio file (the listen button uses the device voice), password reset by email, account deletion UI, payments.
 
 ### Known risks to decide on before widening beyond friends
 1. **News source licence.** Live research uses Bing News RSS (plus a few publisher feeds). That feed is licensed for personal, non-commercial use. Fine for a private beta; replace with a licensed news/search API before a public or paid launch (one file: `server/engine/research/rss.js`).
@@ -60,4 +64,4 @@ It opens full screen with the Over Coffee icon; the last edition you opened stil
 - Re-verify after any deploy: `OC_URL=https://YOUR-URL npm run qa` (35 browser checks; creates test accounts).
 
 ## Version
-`0.2.0` — package version 0.1.0 is the prototype; engine version `0.1.0` is unchanged.
+`0.3.0`. Existing accounts, profiles and editions are preserved: all database changes are additive (new tables, one new column with a default).

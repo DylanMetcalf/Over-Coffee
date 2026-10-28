@@ -1,4 +1,4 @@
-# Launch verification (v0.2.0)
+# Launch verification (v0.3.0)
 
 Automated: `npm test` (26 unit/integration tests) and `npm run qa` (35 real-browser checks on an iPhone-size viewport + desktop, last run **35/35**; raw results in `LAUNCH-VERIFICATION.json`).
 Statuses are only **PASS** when something actually exercised it. “Sample data” means the check ran against the fictional corpus, not the live web.
@@ -67,3 +67,29 @@ Statuses are only **PASS** when something actually exercised it. “Sample data�
 
 ## SECURITY
 Passwords: scrypt, per-user salt. Sessions: random token, only its hash stored, HttpOnly + SameSite=Lax (+Secure on https). Auth endpoints rate-limited. API keys are server-side only. Security headers set. Request bodies capped. PDF render uses a signed per-edition token. Not done: CSRF tokens beyond SameSite, account lockout, email verification, password reset.
+
+
+## v0.3 upgrade (brand, memory, delivery, sharing)
+Automated: `npm test` 36 passing, `npm run qa` 43/43 browser checks. Live-web memory check run by hand (below).
+
+| Item | Status | How verified |
+|---|---|---|
+| Buttons: calm accent, one primary per screen, AA contrast, focus ring, loading/success states | PASS | computed style in browser: flat colour, contrast 5.04:1; inspected on landing, home, story pages |
+| Existing icon, wordmark, fonts, layouts, dashboard, both editions | PASS | unchanged; all earlier checks still pass |
+| Editorial memory: new / duplicate / development / recurring | PASS | unit tests; **live web, two consecutive days**: day 2 held back 9 already-covered stories, 0 repeated headlines |
+| “What changed since…” on developing stories | PARTIAL | logic and rendering tested; no real development occurred in the live check, so not yet seen with live data |
+| Syndicated copies not counted as corroboration | PASS | unit tests (“X on MSN” and same-title copies = one origin) |
+| Saved stories, Library, past editions | PASS | browser |
+| Relevance feedback (more/less), clear history | PASS | browser + unit; feedback nudges ranking by at most ±0.1 |
+| Share one story: public page, real sources, no reader data, social card, revoke | PASS | unit + browser; card PNG rendered by Chromium |
+| Failed generation keeps last edition available; failures logged; bounded retries | PASS | unit test with a forced storage failure |
+| Never announce a stale or held edition | PASS | scheduler logic, unit-tested |
+| Email: unsubscribe + preferences links, one-click `List-Unsubscribe`, consent timestamp | PASS (code) / NOT VERIFIED (provider) | link, signed token, GET-confirm / POST-unsubscribe tested; the Resend call itself needs your key |
+| Per-reader time zone, DST | PASS | reader's IANA zone used for delivery time and edition date; selectable in Settings |
+| Web push: subscribe/unsubscribe, expired subscription removal, duplicate prevention | PASS (code, stub push service) / NOT VERIFIED end-to-end | needs VAPID keys, HTTPS and a real browser; toggle hidden when not configured |
+| Notification opens the correct edition | NOT VERIFIED | service-worker handler written; payload carries the edition URL |
+| Entitlements and sponsored placements | PASS (structure) | off by default; labelled; https only; ad-free plan respected; not in stored editions |
+| Subscriptions / payments | NOT BUILT | no provider connected; see `COMMERCIAL.md` |
+| Analytics: delivery results, returning readers, saves, shares, feedback, ad events | PASS | owner stats endpoint; only real events recorded |
+| Landing page + social preview | PASS | how-it-works, editions explained, absolute `og:image` |
+| Source photos | NOT BUILT, by decision | feeds give no reuse licence; the app keeps its own generated abstract illustrations (no hotlinking, no failures to handle) |

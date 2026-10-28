@@ -551,6 +551,10 @@ function serveStatic(pathname, res) {
   }
   const ext = path.extname(file);
   res.writeHead(200, { 'content-type': TYPES[ext] || 'application/octet-stream', 'cache-control': ext === '.woff2' ? 'public, max-age=31536000' : 'no-cache' });
+  if (file === path.join(WEB, 'index.html')) {
+    // Social crawlers need absolute image URLs.
+    return res.end(fs.readFileSync(file, 'utf8').replace(/content="\/assets\/social-card\.png"/g, `content="${BASE_URL}/assets/social-card.png"`));
+  }
   fs.createReadStream(file).pipe(res);
 }
 

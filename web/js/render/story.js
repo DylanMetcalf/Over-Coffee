@@ -66,6 +66,7 @@ export function renderStory(ed, storyId, mode = 'business') {
     <p class="depth__meta">${plural(sources.length, 'source')} from ${plural(publishers.size, 'publisher')} · ${Object.entries(counts)
       .map(([k, n]) => `${n} ${STATUS_LABEL[k].toLowerCase()}`)
       .join(' · ')}</p>
+    ${ed.kind === 'daily' ? `<div class="depth__actions" data-actions data-ed="${esc(ed.id)}" data-story="${esc(story.id)}"><button type="button" class="btn btn--small btn--ghost" data-act="save" aria-pressed="false">Save</button><button type="button" class="btn btn--small btn--ghost" data-act="share">Share</button><span class="depth__fb" role="group" aria-label="Was this relevant?"><span>Relevant to you?</span><button type="button" class="chip" data-act="more" aria-pressed="false">More like this</button><button type="button" class="chip" data-act="less" aria-pressed="false">Less like this</button></span></div>` : ''}
   </header>
 
   <div class="depth__art">${illustrationSvg(story, { cls: 'ill--depth' })}</div>

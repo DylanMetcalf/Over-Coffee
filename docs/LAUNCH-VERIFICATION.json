@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-07T20:18:35.030Z",
+  "at": "2026-10-28T14:52:01.032Z",
   "base": "http://localhost:4321",
   "results": [
     {
@@ -125,6 +125,54 @@
     {
       "group": "Reading",
       "name": "Last page reached (edition is finite)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Save a story from the paper; it appears in the Library",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Past editions are listed in the Library",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Story page offers Save, Share and relevance feedback",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Reading",
+      "name": "Shared story: public page lists real sources and exposes nothing else",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Settings: time zone, history clearing; no notification toggle unless the server can send them",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Core",
+      "name": "Unsubscribe link works without logging in and removes email",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "group": "Design",
+      "name": "Primary button is a flat, AA-contrast accent (no neon gradient)",
+      "status": "PASS",
+      "detail": "contrast 5.04"
+    },
+    {
+      "group": "Core",
+      "name": "Landing explains the product for logged-out visitors; social preview image is absolute",
       "status": "PASS",
       "detail": ""
     },

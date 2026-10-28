@@ -67,7 +67,9 @@ test('sharing: public page shows only the story and its real sources; revoked li
   assert.match(page, /og:image/);
   assert.match(page, /noindex/);
   assert.ok(!page.includes('f@x.com'), 'no reader identity');
-  for (const s of ed.sources.filter((x) => x.eventId === story.eventId).slice(0, 2)) assert.ok(page.includes(s.url.replace(/&/g, '&amp;')), 'real source link');
+  const mine = ed.sources.filter((x) => x.eventId === story.eventId);
+  assert.ok(mine.length >= 1, 'story has sources');
+  for (const s of mine) assert.ok(page.includes(s.publisher.replace(/&/g, '&amp;')) && page.includes(s.title.replace(/&/g, '&amp;')), 'source listed: ' + s.title);
   const others = ed.stories.filter((x) => x.id !== story.id)[0];
   assert.ok(!page.includes(others.copy.business.headline.replace(/&/g, '&amp;')), 'other stories are not exposed');
   await call('DELETE', '/api/share', { token: sh.token });

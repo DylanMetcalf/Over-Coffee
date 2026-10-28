@@ -15,6 +15,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { sendPush } from './push.js';
 import { withLink } from '../engine/hooks.js';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -25,7 +26,7 @@ export function readLink(baseUrl, edition, mode) {
 }
 
 /** Inline-styled HTML email: renders in mail clients without web fonts or SVG. */
-export function renderEmailHtml({ edition, mode, baseUrl }) {
+export function renderEmailHtml({ edition, mode, baseUrl, unsubUrl = '', manageUrl = '' }) {
   const social = mode === 'social';
   const hooks = withLink(edition.hooks, readLink(baseUrl, edition, mode))[mode];
   const e = hooks.email;
@@ -57,7 +58,7 @@ export function renderEmailHtml({ edition, mode, baseUrl }) {
 <tr><td style="padding:8px 32px 0"><table role="presentation" width="100%">${items}</table>${e.more ? `<p style="margin:6px 0 0;font:500 13px/1.5 ${font};color:#6b7080">+ ${e.more} more inside the paper.</p>` : ''}</td></tr>
 <tr><td style="padding:24px 32px 8px"><a href="${esc(link)}" style="display:inline-block;background:#0a0b10;color:#fff;text-decoration:none;font:650 15px ${font};padding:15px 26px;border-radius:999px">${esc(e.cta)} →</a>
   <a href="${esc(pdf)}" style="font:600 14px ${font};color:#4a4f5c;text-decoration:none;padding-left:18px">Download PDF</a></td></tr>
-<tr><td style="padding:20px 32px 30px;font:400 12px/1.6 ${font};color:#8b909c">${edition.stats.sourcesReviewed} sources reviewed · ${edition.stats.considered} developments considered · quality-checked.<br>The full edition is waiting in your paper. When you’ve read it, you’re done.</td></tr>
+<tr><td style="padding:20px 32px 30px;font:400 12px/1.6 ${font};color:#8b909c">${edition.stats.sourcesReviewed} sources reviewed · ${edition.stats.considered} developments considered · quality-checked.<br>The full edition is waiting in your paper. When you’ve read it, you’re done.${manageUrl || unsubUrl ? `<br><br>${manageUrl ? `<a href="${esc(manageUrl)}" style="color:#6b7080">Manage delivery preferences</a>` : ''}${manageUrl && unsubUrl ? ' · ' : ''}${unsubUrl ? `<a href="${esc(unsubUrl)}" style="color:#6b7080">Unsubscribe from the daily email</a>` : ''}` : ''}</td></tr>
 </table></td></tr></table></body></html>`;
 }
 
@@ -76,7 +77,7 @@ export function whatsappPayload({ edition, mode, baseUrl, number }) {
  * Deliver an edition to the reader's chosen channels. Writes inspectable
  * files; returns what was prepared for each channel.
  */
-export async function deliver({ edition, profile, baseUrl, channels, outDir = path.resolve(process.env.OC_DATA || 'data', 'outbox') }) {
+export async function deliver({ edition, profile, baseUrl, channels, outDir = path.resolve(process.env.OC_DATA || 'data', 'outbox'), unsubUrl = '', pushSubs = [], pushSender }) {
   const mode = profile.mode || 'business';
   const wanted = channels || profile.delivery?.channels || [];
   fs.mkdirSync(outDir, { recursive: true });
@@ -84,12 +85,13 @@ export async function deliver({ edition, profile, baseUrl, channels, outDir = pa
   const stem = path.join(outDir, `${edition.id}-${mode}`);
   const rel = (f) => path.relative(process.cwd(), f);
   if (wanted.includes('push')) {
-    const f = `${stem}.push.json`;
-    fs.writeFileSync(f, JSON.stringify(pushPayload({ edition, mode, baseUrl }), null, 2));
-    result.push = { file: rel(f), ...pushPayload({ edition, mode, baseUrl }) };
+    const payload = pushPayload({ edition, mode, baseUrl });
+    const r = await sendPush(pushSubs, payload, pushSender ? { sender: pushSender } : undefined);
+    result.push = { sent: r.sent, gone: r.gone, ...(r.sent === 0 && r.errors.length ? { error: r.errors[0] } : {}), url: payload.url };
+    fs.writeFileSync(`${stem}.push.json`, JSON.stringify(payload, null, 2));
   }
   if (wanted.includes('email')) {
-    const html = renderEmailHtml({ edition, mode, baseUrl });
+    const html = renderEmailHtml({ edition, mode, baseUrl, unsubUrl, manageUrl: `${baseUrl}/#/settings` });
     const hooks = withLink(edition.hooks, readLink(baseUrl, edition, mode))[mode];
     fs.writeFileSync(`${stem}.email.html`, html);
     const boundary = 'oc-' + edition.id;
@@ -120,7 +122,7 @@ export async function deliver({ edition, profile, baseUrl, channels, outDir = pa
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ from: process.env.OC_EMAIL_FROM || 'Over Coffee <onboarding@resend.dev>', to: [profile.email], subject: hooks.email.subject, html }),
+          body: JSON.stringify({ from: process.env.OC_EMAIL_FROM || 'Over Coffee <onboarding@resend.dev>', to: [profile.email], subject: hooks.email.subject, html, ...(unsubUrl ? { headers: { 'List-Unsubscribe': `<${unsubUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } } : {}) }),
           signal: AbortSignal.timeout(15000),
         });
         if (!res.ok) throw new Error(`Email provider ${res.status}`);

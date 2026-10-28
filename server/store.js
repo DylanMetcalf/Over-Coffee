@@ -45,6 +45,70 @@ CREATE TABLE IF NOT EXISTS deliveries (
   updated_at TEXT NOT NULL,
   PRIMARY KEY (user_id, edition_id, channel)
 );
+-- What each reader has already been told (editorial memory).
+CREATE TABLE IF NOT EXISTS story_memory (
+  user_id TEXT NOT NULL,
+  story_key TEXT NOT NULL,
+  first_date TEXT NOT NULL,
+  last_date TEXT NOT NULL,
+  headline TEXT,
+  fp TEXT NOT NULL,
+  times INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (user_id, story_key)
+);
+CREATE TABLE IF NOT EXISTS saved_stories (
+  user_id TEXT NOT NULL,
+  edition_id TEXT NOT NULL,
+  story_id TEXT NOT NULL,
+  headline TEXT,
+  topic TEXT,
+  saved_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, edition_id, story_id)
+);
+CREATE TABLE IF NOT EXISTS feedback (
+  user_id TEXT NOT NULL,
+  edition_id TEXT NOT NULL,
+  story_id TEXT NOT NULL,
+  topic TEXT,
+  subtopic TEXT,
+  signal TEXT NOT NULL,            -- more | less
+  at TEXT NOT NULL,
+  PRIMARY KEY (user_id, edition_id, story_id)
+);
+CREATE TABLE IF NOT EXISTS generation_failures (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  error TEXT,
+  at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS shares (
+  token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  edition_id TEXT NOT NULL,
+  story_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  revoked INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  keys TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS sponsors (
+  id TEXT PRIMARY KEY,
+  advertiser TEXT NOT NULL,
+  headline TEXT NOT NULL,
+  body TEXT,
+  url TEXT NOT NULL,
+  topic_ids TEXT,                  -- JSON array; empty = any
+  starts TEXT,
+  ends TEXT,
+  max_per_edition INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'draft'
+);
 CREATE TABLE IF NOT EXISTS profiles (
   user_id TEXT PRIMARY KEY REFERENCES users(id),
   json TEXT NOT NULL,
@@ -136,6 +200,111 @@ export class Store {
     this.db = new DatabaseSync(file);
     this.db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
     this.db.exec(SCHEMA);
+    // Additive migrations (safe on existing databases).
+    const cols = this.db.prepare('PRAGMA table_info(accounts)').all().map((c) => c.name);
+    if (!cols.includes('plan')) this.db.exec("ALTER TABLE accounts ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'");
+  }
+
+  // ── settings (persistent secrets etc.) ──
+  getSetting(key) {
+    return this.db.prepare('SELECT value FROM settings WHERE key = ?').get(key)?.value ?? null;
+  }
+  setSetting(key, value) {
+    this.db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
+  }
+
+  // ── editorial memory ──
+  listMemory(userId) {
+    return this.db.prepare('SELECT story_key AS key, first_date AS firstDate, last_date AS lastDate, headline, fp, times FROM story_memory WHERE user_id = ?').all(userId).map((r) => ({ ...r, fp: JSON.parse(r.fp) }));
+  }
+  upsertMemory(userId, key, date, headline, fp) {
+    this.db
+      .prepare(
+        `INSERT INTO story_memory (user_id, story_key, first_date, last_date, headline, fp, times) VALUES (?, ?, ?, ?, ?, ?, 1)
+         ON CONFLICT(user_id, story_key) DO UPDATE SET last_date = excluded.last_date, headline = excluded.headline, fp = excluded.fp, times = times + 1`,
+      )
+      .run(userId, key, date, date, headline, JSON.stringify(fp));
+  }
+
+  // ── saved stories, feedback ──
+  saveStory(userId, editionId, storyId, headline, topic) {
+    this.db.prepare('INSERT OR REPLACE INTO saved_stories (user_id, edition_id, story_id, headline, topic, saved_at) VALUES (?, ?, ?, ?, ?, ?)').run(userId, editionId, storyId, headline, topic, this.now());
+  }
+  unsaveStory(userId, editionId, storyId) {
+    this.db.prepare('DELETE FROM saved_stories WHERE user_id = ? AND edition_id = ? AND story_id = ?').run(userId, editionId, storyId);
+  }
+  listSaved(userId) {
+    return this.db.prepare('SELECT edition_id AS editionId, story_id AS storyId, headline, topic, saved_at AS savedAt FROM saved_stories WHERE user_id = ? ORDER BY saved_at DESC LIMIT 200').all(userId);
+  }
+  setFeedback(userId, editionId, storyId, topic, subtopic, signal) {
+    this.db.prepare('INSERT OR REPLACE INTO feedback (user_id, edition_id, story_id, topic, subtopic, signal, at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(userId, editionId, storyId, topic, subtopic, signal, this.now());
+  }
+  feedbackFor(userId) {
+    return this.db.prepare('SELECT edition_id AS editionId, story_id AS storyId, topic, subtopic, signal FROM feedback WHERE user_id = ?').all(userId);
+  }
+  /** Net relevance signal per topic and subtopic, from explicit reader feedback only. */
+  affinity(userId) {
+    const out = { topics: {}, subtopics: {} };
+    for (const f of this.feedbackFor(userId)) {
+      const v = f.signal === 'more' ? 1 : -1;
+      if (f.topic) out.topics[f.topic] = (out.topics[f.topic] || 0) + v;
+      if (f.subtopic) out.subtopics[f.subtopic] = (out.subtopics[f.subtopic] || 0) + v;
+    }
+    return out;
+  }
+  clearPersonalisation(userId) {
+    for (const t of ['feedback', 'story_memory', 'saved_stories']) this.db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).run(userId);
+  }
+
+  // ── failures ──
+  logFailure(userId, date, error) {
+    this.db.prepare('INSERT INTO generation_failures (user_id, date, error, at) VALUES (?, ?, ?, ?)').run(userId, date, String(error).slice(0, 400), this.now());
+  }
+  failureCount(userId, date) {
+    return this.db.prepare('SELECT COUNT(*) AS n FROM generation_failures WHERE user_id = ? AND date = ?').get(userId, date).n;
+  }
+  latestEditionAny(userId, kind = 'daily') {
+    const r = this.db.prepare('SELECT id FROM editions WHERE user_id = ? AND kind = ? ORDER BY editorial_date DESC, generated_at DESC LIMIT 1').get(userId, kind);
+    return r ? this.getEdition(r.id) : null;
+  }
+
+  // ── shares ──
+  createShare(token, userId, editionId, storyId) {
+    this.db.prepare('INSERT INTO shares (token, user_id, edition_id, story_id, created_at) VALUES (?, ?, ?, ?, ?)').run(token, userId, editionId, storyId, this.now());
+  }
+  getShare(token) {
+    return this.db.prepare('SELECT token, user_id AS userId, edition_id AS editionId, story_id AS storyId, revoked FROM shares WHERE token = ?').get(token) || null;
+  }
+  revokeShare(token, userId) {
+    return this.db.prepare('UPDATE shares SET revoked = 1 WHERE token = ? AND user_id = ?').run(token, userId).changes;
+  }
+
+  // ── push subscriptions ──
+  savePush(userId, endpoint, keys) {
+    this.db.prepare('INSERT INTO push_subscriptions (endpoint, user_id, keys, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, keys = excluded.keys').run(endpoint, userId, JSON.stringify(keys), this.now());
+  }
+  listPush(userId) {
+    return this.db.prepare('SELECT endpoint, keys FROM push_subscriptions WHERE user_id = ?').all(userId).map((r) => ({ endpoint: r.endpoint, keys: JSON.parse(r.keys) }));
+  }
+  deletePush(endpoint) {
+    this.db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(endpoint);
+  }
+
+  // ── plan ──
+  planOf(userId) {
+    return this.db.prepare('SELECT plan FROM accounts WHERE user_id = ?').get(userId)?.plan || 'free';
+  }
+
+  // ── stats for the owner ──
+  deliveryStats() {
+    return this.db.prepare('SELECT channel, status, COUNT(*) AS n FROM deliveries GROUP BY channel, status').all();
+  }
+  editionStats() {
+    return {
+      generated: this.db.prepare("SELECT COUNT(*) AS n FROM editions WHERE kind = 'daily'").get().n,
+      failures: this.db.prepare('SELECT COUNT(*) AS n FROM generation_failures').get().n,
+      returning7d: this.db.prepare("SELECT COUNT(*) AS n FROM (SELECT user_id FROM analytics WHERE name = 'edition_opened' AND at > datetime('now','-7 day') GROUP BY user_id HAVING COUNT(DISTINCT substr(at,1,10)) >= 2)").get().n,
+    };
   }
 
   now() {

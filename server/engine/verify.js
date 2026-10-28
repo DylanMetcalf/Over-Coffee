@@ -13,6 +13,7 @@
 //   uncertain   — contested, or supported only by low-credibility sources
 
 import { SAMPLE_PUBLISHERS } from '../data/sample-corpus.js';
+import { independentOrigins } from './memory.js';
 
 export const PRIMARY_TYPES = new Set(['official', 'filing', 'regulatory', 'research', 'documentation']);
 
@@ -72,9 +73,10 @@ export function claimStatus(claim, sourcesById) {
   const credible = supporting.filter((s) => s.credibility.score >= 0.6);
   if (!credible.length) return { status: 'uncertain', note: 'Supported only by low-credibility sources.' };
   if (credible.some((s) => s.credibility.primary)) return { status: 'confirmed', note: 'Primary source.' };
-  const publishers = new Set(credible.map((s) => s.publisher));
-  if (publishers.size >= 2) return { status: 'confirmed', note: `Corroborated by ${publishers.size} independent outlets.` };
-  return { status: 'reported', note: 'Single credible outlet.' };
+  // Syndicated copies and several stories from one outlet are one origin, not corroboration.
+  const origins = independentOrigins(credible);
+  if (origins >= 2) return { status: 'confirmed', note: `Corroborated by ${origins} independent outlets.` };
+  return { status: 'reported', note: credible.length > 1 ? 'Several copies of one outlet’s report; not independently corroborated.' : 'Single credible outlet.' };
 }
 
 export const STATUS_ORDER = ['confirmed', 'reported', 'interpreted', 'emerging', 'uncertain', 'unsupported'];

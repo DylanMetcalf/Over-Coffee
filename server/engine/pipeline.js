@@ -13,6 +13,7 @@ import { createResearchAdapter, researchTopics } from './research/index.js';
 import { clusterArticles } from './cluster.js';
 import { analyseCluster } from './analyst.js';
 import { claudeTriage, triageEnabled } from './live-analyst.js';
+import { classify as classifyMemory, fingerprint } from './memory.js';
 import { assessSource, claimStatus, eventStatus, SOURCE_TYPE_LABEL } from './verify.js';
 import { scoreEvent, primaryTopic } from './prioritize.js';
 import { editEdition, composeSections } from './editor.js';
@@ -158,7 +159,27 @@ export async function runPipeline(opts) {
     e.score = scoreEvent(e, { userTopicIds, editionTime: editionTime.getTime() });
     e.primaryTopic = primaryTopic(e, userTopicIds);
   }
-  stage('prioritize', `top score ${Math.max(0, ...events.map((e) => e.score.total)).toFixed(2)}`);
+  // 08b — EDITORIAL MEMORY and relevance feedback (live daily editions only).
+  let memoryNote = '';
+  if (!adapter.sample && kind === 'daily' && userId) {
+    const memory = store.listMemory(userId);
+    const aff = store.affinity(userId);
+    const counts = { new: 0, duplicate: 0, recurring: 0, development: 0 };
+    for (const e of events) {
+      const m = classifyMemory(e, memory, { today: date });
+      counts[m.kind]++;
+      e.memory = m;
+      if (m.kind === 'duplicate' || m.kind === 'recurring') e.rejectReason ||= `Already covered on ${m.since} (“${m.previousHeadline}”). No meaningful new reporting.`;
+      if (m.kind === 'development') {
+        e.development = { since: m.since, previousHeadline: m.previousHeadline, changes: m.changes || [], continuing: !!m.continuing };
+        e.score.total = Math.min(1, e.score.total + 0.03);
+      }
+      const nudge = Math.max(-0.1, Math.min(0.1, 0.03 * ((aff.topics[e.primaryTopic] || 0) + (aff.subtopics[e.subtopic] || 0))));
+      if (nudge) e.score.total = Math.max(0, Math.min(1, e.score.total + nudge));
+    }
+    memoryNote = ` · memory: ${counts.new} new, ${counts.development} developing, ${counts.duplicate + counts.recurring} already covered`;
+  }
+  stage('prioritize', `top score ${Math.max(0, ...events.map((e) => e.score.total)).toFixed(2)}${memoryNote}`);
 
   // 09 — EDIT
   // Heuristic live scoring is crude, so it uses a lower bar; model triage and sample desk use the normal one.
@@ -189,6 +210,7 @@ export async function runPipeline(opts) {
       depth: w.depth,
       figure: w.figure,
       hooks: w.hooks || null,
+      development: e.development || null,
     });
   }
   // Related developments: link to stories in this edition, otherwise name the event if we researched it.
@@ -294,5 +316,10 @@ export async function runPipeline(opts) {
   stage('done', `${(log.reduce((a, s) => a + s.ms, 0)).toFixed(0)} ms`);
   edition.pipeline = log;
   store.saveEdition(edition);
+  // Remember what this reader has now been told (only after the edition is safely saved).
+  if (!adapter.sample && kind === 'daily' && userId && edition.delivery.status !== 'held') {
+    const published = new Set(edition.stories.map((st) => st.eventId));
+    for (const e of events) if (published.has(e.id)) store.upsertMemory(userId, e.memory?.key || 'm-' + e.key, date, e.title, fingerprint(e));
+  }
   return edition;
 }

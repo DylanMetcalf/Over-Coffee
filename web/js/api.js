@@ -24,6 +24,14 @@ export const api = {
   logout: () => request('POST', '/api/auth/logout'),
   track: (name, props) => request('POST', '/api/track', { name, props }).catch(() => {}),
   me: () => request('GET', '/api/me'),
+  save: (editionId, storyId) => request('POST', '/api/saved', { editionId, storyId }),
+  unsave: (editionId, storyId) => request('DELETE', '/api/saved', { editionId, storyId }),
+  library: () => request('GET', '/api/library'),
+  feedback: (editionId, storyId, signal) => request('POST', '/api/feedback', { editionId, storyId, signal }),
+  clearPersonalisation: () => request('POST', '/api/personalisation/clear'),
+  share: (editionId, storyId) => request('POST', '/api/share', { editionId, storyId }),
+  pushSubscribe: (subscription) => request('POST', '/api/push/subscribe', { subscription }),
+  pushUnsubscribe: (endpoint) => request('DELETE', '/api/push/subscribe', { endpoint }),
   saveProfile: (patch) => request('PUT', '/api/profile', patch),
   reset: () => request('POST', '/api/reset'),
   catalog: () => request('GET', '/api/topics/catalog'),
@@ -32,9 +40,11 @@ export const api = {
   random: () => request('GET', '/api/topics/random?seed=' + Date.now()),
   adventurous: () => request('GET', '/api/topics/adventurous?seed=' + Date.now()),
   changeToday: (payload) => request('PUT', '/api/today', payload),
+  sponsored: null,
   async today() {
-    const { edition } = await request('GET', '/api/today');
+    const { edition, sponsored } = await request('GET', '/api/today');
     editions.set(edition.id, edition);
+    api.sponsored = sponsored || null;
     return edition;
   },
   async edition(id) {

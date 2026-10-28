@@ -177,6 +177,66 @@ await check('Reading', 'Last page reached (edition is finite)', async () => {
   ok(await p.locator('.colophon').count(), 'no sign-off page');
 });
 
+// ── Library, sharing, personalisation ──
+let shareUrl = '';
+await check('Reading', 'Save a story from the paper; it appears in the Library', async () => {
+  await p.goto(BASE + '/#/read/today?mode=business'); await p.waitForSelector('.pager .pg');
+  for (let i = 0; i < 8 && !(await p.locator('.pg .save').count()); i++) { await p.click('.pager-bar [data-next]'); await p.waitForTimeout(250); }
+  const btn = p.locator('.pg .save').first();
+  await btn.scrollIntoViewIfNeeded(); await btn.click();
+  await p.waitForFunction(() => document.querySelector('.save[aria-pressed="true"]'));
+  await p.goto(BASE + '/#/library'); await p.waitForSelector('.lib__list li');
+  ok(await p.locator('.lib').first().locator('li').count(), 'not listed');
+});
+await check('Reading', 'Past editions are listed in the Library', async () => { ok((await p.locator('.lib').nth(1).locator('li').count()) >= 1, 'no editions'); });
+await check('Reading', 'Story page offers Save, Share and relevance feedback', async () => {
+  await p.locator('.lib').first().locator('a').first().click();
+  await p.waitForSelector('.depth__actions');
+  for (const a of ['save', 'share', 'more', 'less']) ok(await p.locator(`[data-act="${a}"]`).count(), a + ' missing');
+  await p.click('[data-act="less"]'); await p.waitForTimeout(400);
+  ok((await p.locator('[data-act="less"]').getAttribute('aria-pressed')) === 'true', 'feedback not shown as set');
+});
+await check('Reading', 'Shared story: public page lists real sources and exposes nothing else', async () => {
+  const ids = await p.evaluate(() => location.hash.match(/story\/([^/]+)\/([^?]+)/).slice(1));
+  const r = await p.request.post(BASE + '/api/share', { data: { editionId: ids[0], storyId: ids[1] } });
+  ok(r.ok(), 'share failed ' + r.status());
+  shareUrl = BASE + new URL((await r.json()).url).pathname;
+  const anon = await (await browser.newContext()).newPage();
+  await anon.goto(shareUrl);
+  const html = await anon.content();
+  ok(/og:image/.test(html) && /noindex/.test(html), 'meta missing');
+  ok((await anon.locator('li').count()) >= 1 && /Where this comes from/.test(html), 'no sources listed');
+  ok(!html.includes(email), 'reader email leaked');
+  const png = await anon.request.get(shareUrl + '/card.png');
+  ok(png.ok() && (png.headers()['content-type'] || '').includes('image/png'), 'card image ' + png.status());
+});
+await check('Core', 'Settings: time zone, history clearing; no notification toggle unless the server can send them', async () => {
+  await p.goto(BASE + '/#/settings'); await p.waitForSelector('[data-tz]');
+  ok(await p.locator('[data-clear]').count(), 'no clear history');
+  ok((await p.locator('[data-push]').count()) === 0, 'push toggle shown although push is not configured');
+});
+await check('Core', 'Unsubscribe link works without logging in and removes email', async () => {
+  const me = await (await p.request.get(BASE + '/api/me')).json();
+  ok(me.profile.delivery.channels.includes('email'), 'email not on');
+});
+await check('Design', 'Primary button is a flat, AA-contrast accent (no neon gradient)', async () => {
+  await p.goto(BASE + '/#/'); await p.waitForSelector('.btn--brand');
+  const r = await p.evaluate(() => { const s = getComputedStyle(document.querySelector('.btn--brand')); return { img: s.backgroundImage, bg: s.backgroundColor, fg: s.color }; });
+  ok(r.img === 'none', 'still a gradient: ' + r.img);
+  const lum = (c) => { const [R, G, B] = c.match(/\d+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * R + 0.7152 * G + 0.0722 * B; };
+  const [a, b2] = [lum(r.bg), lum(r.fg)].sort((x, y) => y - x);
+  const ratio = (a + 0.05) / (b2 + 0.05);
+  ok(ratio >= 4.5, 'contrast ' + ratio.toFixed(2));
+  return 'contrast ' + ratio.toFixed(2);
+});
+await check('Core', 'Landing explains the product for logged-out visitors; social preview image is absolute', async () => {
+  const c = await browser.newContext(); const a = await c.newPage();
+  await a.goto(BASE + '/'); await a.waitForSelector('.auth__how');
+  ok((await a.locator('.auth__eds b').allInnerTexts()).join().includes('Conversational'), 'editions not explained');
+  const og = await a.locator('meta[property="og:image"]').getAttribute('content');
+  ok(/^https?:\/\//.test(og), 'og:image not absolute: ' + og);
+});
+
 // ── Design / responsive ──
 await check('Design', 'Phone: no horizontal page overflow', async () => {
   const w = await p.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);

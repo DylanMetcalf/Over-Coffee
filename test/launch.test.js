@@ -16,6 +16,7 @@ process.env.OC_DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-test-'));
 async function serve() {
   const app = createApp({ store: new Store(':memory:') });
   const server = http.createServer(app.handler);
+  server.unref();
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}`;
   const client = () => {
@@ -116,9 +117,13 @@ test('scheduler prepares and delivers once, retries a failed channel, and never 
   await app.tick();
   assert.equal(app.store.getDelivery(user, ed.id, 'email').attempts, 1, 'second tick does not resend');
   // a failed channel is retried, but only up to the cap
-  app.store.recordDelivery(user, ed.id, 'whatsapp', 'failed', 'x');
-  await a('PUT', '/api/profile', { delivery: { channels: ['email', 'whatsapp'] } });
+  app.store.recordDelivery(user, ed.id, 'email', 'failed', 'provider timeout');
   await app.tick();
-  assert.ok(app.store.getDelivery(user, ed.id, 'whatsapp').attempts >= 2, 'failed channel retried');
+  assert.equal(app.store.getDelivery(user, ed.id, 'email').status, 'outbox', 'failed channel was retried');
+  const attempts = app.store.getDelivery(user, ed.id, 'email').attempts;
+  app.store.recordDelivery(user, ed.id, 'email', 'failed', 'again');
+  app.store.recordDelivery(user, ed.id, 'email', 'failed', 'again');
+  await app.tick();
+  assert.equal(app.store.getDelivery(user, ed.id, 'email').attempts, attempts + 2, 'no retry beyond the attempt cap');
   server.close();
 });

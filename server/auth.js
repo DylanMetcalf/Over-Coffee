@@ -57,14 +57,27 @@ function appendCookie(res, value) {
 }
 
 /** Short-lived signed token so headless Chromium can fetch /print/:id for PDFs without a cookie. */
-const SECRET = process.env.OC_SECRET || crypto.randomBytes(32).toString('hex');
-export function printToken(editionId) {
-  return crypto.createHmac('sha256', SECRET).update('print:' + editionId).digest('base64url').slice(0, 32);
+let SECRET = process.env.OC_SECRET || crypto.randomBytes(32).toString('hex');
+/** Signed links (unsubscribe, PDF render) must survive restarts: persist a generated secret when none is configured. */
+export function initSecret(store) {
+  if (process.env.OC_SECRET) return;
+  let s = store.getSetting('secret');
+  if (!s) {
+    s = crypto.randomBytes(32).toString('hex');
+    store.setSetting('secret', s);
+  }
+  SECRET = s;
 }
-export function checkPrintToken(editionId, token) {
-  const want = printToken(editionId);
+export function sign(purpose, value) {
+  return crypto.createHmac('sha256', SECRET).update(purpose + ':' + value).digest('base64url').slice(0, 32);
+}
+export function verifySigned(purpose, value, token) {
+  const want = sign(purpose, value);
   return typeof token === 'string' && token.length === want.length && crypto.timingSafeEqual(Buffer.from(token), Buffer.from(want));
 }
+export const printToken = (editionId) => sign('print', editionId);
+export const checkPrintToken = (editionId, token) => verifySigned('print', editionId, token);
+export const unsubToken = (userId) => sign('unsub', userId);
 
 /** Tiny in-memory rate limit for auth endpoints. */
 const hits = new Map();

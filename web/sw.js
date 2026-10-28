@@ -6,7 +6,7 @@
 //   - Account, writes and anything else: never cached.
 // The cache is wiped on logout so a shared device never shows another reader's paper.
 
-const VERSION = 'oc-v4';
+const VERSION = 'oc-v5';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/css/fonts.css', '/css/tokens.css', '/css/paper.css', '/css/social.css', '/css/base.css', '/assets/favicon.svg', '/assets/icon-192.png', '/assets/mark.svg'];
 const DATA = /^\/api\/(today|editions\/[^/]+(\/ledger)?|me|auth\/me)$/;
 
@@ -46,6 +46,22 @@ async function cacheFirst(req) {
   if (res.ok) cache.put(req, res.clone());
   return res;
 }
+
+// Web Push: show the notification, and open the exact edition when it is tapped.
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data.json(); } catch { /* empty */ }
+  e.waitUntil(self.registration.showNotification(d.title || 'Over Coffee', { body: d.body || 'Your edition is ready.', icon: d.icon || '/assets/icon-192.png', badge: '/assets/icon-192.png', tag: d.tag || 'oc-edition', data: { url: d.url || '/' } }));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = e.notification.data?.url || '/';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    const c = list.find((w) => 'focus' in w);
+    if (c) { c.navigate?.(url); return c.focus(); }
+    return self.clients.openWindow(url);
+  }));
+});
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;

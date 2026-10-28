@@ -147,6 +147,7 @@ const routes = {
   download: viewDownload,
   compare: viewCompare,
   lab: viewCompare,
+  library: viewLibrary,
   edition: viewEdition,
   embed: viewEmbed,
 };
@@ -197,7 +198,8 @@ function viewAuth(mode = 'login') {
       <div class="auth__grid">
         <div class="auth__pitch">
           <h1>Your own daily newspaper.<br><em>Finished in minutes.</em></h1>
-          <p>Tell Over Coffee what you care about. Each morning it reads the news, checks it, and gives you one short edition. When you reach the end, you are done.</p>
+          <p>Your own daily publication, thoughtfully prepared to help you understand what matters. Tell it what you care about. Each morning it reads the news, checks the sources, and gives you one short edition. When you reach the end, you are done.</p>
+          <p class="auth__tag">A little perspective for your day.</p>
           <p class="auth__links"><a class="textlink" href="#/read/preview-multi-10?mode=business">See a sample newspaper</a><span>·</span><a class="textlink" href="#/lab">Newspaper lab</a></p>
         </div>
         <form class="auth__card" novalidate>
@@ -207,7 +209,13 @@ function viewAuth(mode = 'login') {
           <p class="auth__error" role="alert" hidden></p>
           <button class="btn btn--brand" type="submit">${signup ? 'Create account' : 'Log in'}</button>
           <p class="auth__switch">${signup ? 'Already have an account? <a href="#/login">Log in</a>' : 'New here? <a href="#/signup">Create an account</a>'}</p>
-        </form></div></section>`,
+        </form></div>
+      <div class="auth__how">
+        <h2>How it works</h2>
+        <ol><li><b>Say what you care about.</b> In your own words, from AI to farming to football. No questionnaire.</li><li><b>We prepare one edition.</b> Duplicate reports become one story, claims are checked against sources, and you get only what clears the bar.</li><li><b>You read it, and you’re done.</b> Swipe the pages, tap Learn more for the sources, and get on with your day.</li></ol>
+        <div class="auth__eds"><div><b>Business</b><span>Concise, precise and calm. For people who need the facts fast.</span></div><div><b>Conversational</b><span>The same facts in simple, friendly words. A smart friend explaining it over coffee.</span></div></div>
+        <p class="auth__small">Free while we’re in early access. Every story shows where it came from.</p>
+      </div></section>`,
     { title: signup ? 'Create account' : 'Log in' },
   );
   const form = $app.querySelector('form');
@@ -247,6 +255,8 @@ router();
 
 // ── HOME: the entrance to the publication ──────────────────────────────────
 
+const staleBanner = (ed) => (ed.stale ? `<div class="stale-banner" role="status"><b>Today’s edition couldn’t be prepared.</b> You’re reading your latest edition, from ${esc(longDate(ed.editorialDate))}. We’ll keep trying.</div>` : '');
+
 async function viewHome() {
   setNav('today');
   setTone('business');
@@ -261,6 +271,7 @@ async function viewHome() {
     `<section class="home"><div class="home__bg" aria-hidden="true"></div><div class="home__grid">
       <div class="home__main">
         ${ed.sample ? `<div class="sample-banner"><strong>Design prototype — sample edition</strong><span>Fictional organisations, people and figures. Not current news.</span></div>` : ''}
+        ${staleBanner(ed)}
         <span class="eyebrow-pill"><i class="live"></i>${esc(longDate(ed.editorialDate))} · your ${minutes}-minute edition</span>
         <h1>Good morning.<br><em>Here’s what matters.</em></h1>
         ${override ? `<p class="home__override">${override.reason === 'adventurous' ? 'Feeling adventurous today' : override.reason === 'random' ? 'A random topic, just for today' : 'Changed for today only'}${override.path ? ` — ${esc(override.path.join(' → '))}` : ''}</p>` : ''}
@@ -273,7 +284,7 @@ async function viewHome() {
         <div class="home__more">
           <button class="textlink" type="button" data-change>Change today’s paper</button>
           ${override ? `<button class="textlink" type="button" data-reset-today>Back to my usual topics</button>` : ''}
-          <a class="textlink" href="#/compare">Compare the four prototype editions</a>
+          <a class="textlink" href="#/library">Library: saved stories and past editions</a>
         </div>
       </div>
       ${n ? `<aside class="peek" aria-label="Today at a glance">
@@ -452,13 +463,14 @@ async function viewRead([id = 'today'], query) {
         ${isDaily ? '<button class="tool" type="button" data-change>Change today</button>' : ''}
       </div>
     </div>
-    ${renderNewspaper(ed, mode)}`,
+    ${staleBanner(ed)}${renderNewspaper(ed, mode, { saved: new Set(me.savedKeys || []), sponsored: id === 'today' && !ed.stale ? api.sponsored : null })}`,
     { title: longDate(ed.editorialDate) },
   );
   $app.querySelector('[data-listen]').addEventListener('click', () => openListen(ed, mode));
   $app.querySelector('[data-change]')?.addEventListener('click', () => openChangeToday());
   wirePaper($app, ed);
   if (isDaily) api.track('edition_opened', { mode });
+  if (id === 'today' && api.sponsored && !ed.stale) api.track('ad_impression', { id: api.sponsored.id });
   const at = query.get('at');
   const paged = pageify($app, { edId: ed.id, mode, at, onComplete: () => isDaily && api.track('edition_completed', { mode }) });
   if (!paged && at) requestAnimationFrame(() => document.getElementById(at)?.scrollIntoView({ block: 'start' }));
@@ -468,6 +480,21 @@ async function viewRead([id = 'today'], query) {
 window.matchMedia('(max-width: 760px)').addEventListener('change', () => location.hash.startsWith('#/read') && router());
 
 function wirePaper(root) {
+  root.addEventListener('click', async (e) => {
+    const b = e.target.closest('.save');
+    if (!b) return;
+    e.preventDefault();
+    const [edId, stId] = b.dataset.save.split('/');
+    const on = b.getAttribute('aria-pressed') !== 'true';
+    try {
+      await (on ? api.save(edId, stId) : api.unsave(edId, stId));
+      me.savedKeys = on ? [...(me.savedKeys || []), b.dataset.save] : (me.savedKeys || []).filter((k) => k !== b.dataset.save);
+      b.setAttribute('aria-pressed', on);
+      b.setAttribute('aria-label', on ? 'Saved' : 'Save this story');
+      b.querySelector('path')?.setAttribute('fill', on ? 'currentColor' : 'none');
+      toast(on ? 'Saved to your library.' : 'Removed from your library.');
+    } catch (err) { toast(err.message); }
+  });
   root.querySelectorAll('[data-jump]').forEach((a) =>
     a.addEventListener('click', (e) => {
       e.preventDefault();
@@ -504,7 +531,44 @@ async function viewStory([edId, storyId], query) {
   if (!html) throw new Error('That story isn’t in this edition.');
   const st = ed.stories.find((s) => s.id === storyId);
   render(html, { title: st.copy[mode].headline });
+  wireStoryActions(edId, storyId, mode);
   if (location.hash.includes('#sources')) document.getElementById('sources')?.scrollIntoView();
+}
+
+/** Save, share and relevance feedback on the story page. */
+function wireStoryActions(edId, storyId, mode) {
+  const box = $app.querySelector('[data-actions]');
+  if (!box) return;
+  const key = `${edId}/${storyId}`;
+  const $save = box.querySelector('[data-act="save"]');
+  const paintSave = (on) => { $save.setAttribute('aria-pressed', on); $save.textContent = on ? 'Saved ✓' : 'Save'; };
+  paintSave((me.savedKeys || []).includes(key));
+  $save.addEventListener('click', async () => {
+    const on = $save.getAttribute('aria-pressed') !== 'true';
+    try {
+      await (on ? api.save(edId, storyId) : api.unsave(edId, storyId));
+      me.savedKeys = on ? [...(me.savedKeys || []), key] : (me.savedKeys || []).filter((k) => k !== key);
+      paintSave(on);
+      toast(on ? 'Saved to your library.' : 'Removed from your library.');
+    } catch (e) { toast(e.message); }
+  });
+  box.querySelector('[data-act="share"]').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.classList.add('is-loading');
+    try {
+      const r = await api.share(edId, storyId);
+      if (navigator.share) await navigator.share({ title: r.title, url: r.url }).catch(() => {});
+      else { await navigator.clipboard.writeText(r.url); toast('Link copied. It shows this story and its sources only.'); }
+    } catch (err) { toast(err.message); }
+    btn.classList.remove('is-loading');
+  });
+  const fb = box.querySelectorAll('[data-act="more"], [data-act="less"]');
+  fb.forEach((b) => b.addEventListener('click', async () => {
+    const on = b.getAttribute('aria-pressed') !== 'true';
+    fb.forEach((x) => x.setAttribute('aria-pressed', 'false'));
+    b.setAttribute('aria-pressed', on);
+    try { await api.feedback(edId, storyId, on ? b.dataset.act : 'clear'); toast(on ? 'Thanks. Future editions will take that into account.' : 'Feedback removed.'); } catch (e) { toast(e.message); }
+  }));
 }
 
 async function viewSource([edId, sourceId], query) {
@@ -837,6 +901,12 @@ async function viewSettings() {
         <button class="btn btn--small btn--ghost" type="button" data-deliver>Prepare today’s ping files</button>
       </div>
 
+      <h2 class="block__h" style="margin-top:44px">Notifications and privacy</h2>
+      <section class="panel">
+        ${row('Time zone', 'Your edition is prepared by the time above, in this time zone.', `<select class="select" data-tz aria-label="Time zone">${(window.Intl?.supportedValuesOf?.('timeZone') || [p.tz]).concat(p.tz).filter((z, i, a) => a.indexOf(z) === i).sort().map((z) => `<option ${z === p.tz ? 'selected' : ''}>${esc(z)}</option>`).join('')}</select>`)}
+        ${me.push?.enabled ? row('Browser notifications', 'A quiet nudge when your edition is ready, and nothing else. On iPhone, add Over Coffee to your home screen first.', `<button class="btn btn--small btn--ghost" type="button" data-push>${me.push.subscribed ? 'Turn off' : 'Turn on'}</button><p class="note" data-push-note role="status"></p>`) : ''}
+        ${row('Personalisation', 'Clear what Over Coffee remembers about you: stories already covered, your relevance feedback and saved stories.', `<button class="btn btn--small btn--ghost" type="button" data-clear>Clear history</button>`)}
+      </section>
       <section class="panel" style="margin-top:44px">
         <div class="setting"><div class="setting__label"><h3>Account</h3><p>${esc(me.user?.email || '')}</p></div><div><button class="btn btn--small btn--ghost" type="button" data-logout>Log out</button></div></div>
         <div class="setting"><div class="setting__label"><h3>Start over</h3><p>Replay the welcome and choose your topics again.</p></div><div><button class="textlink" type="button" data-reset>Start over</button></div></div>
@@ -845,6 +915,45 @@ async function viewSettings() {
     { title: 'Settings' },
   );
   $app.querySelector('[data-logout]')?.addEventListener('click', logout);
+  $app.querySelector('[data-tz]')?.addEventListener('change', async (e) => { await api.saveProfile({ tz: e.target.value }); await refreshMe(); toast('Time zone saved.'); });
+  $app.querySelector('[data-clear]')?.addEventListener('click', async () => {
+    if (!confirm('Clear what Over Coffee remembers? Stories it has covered, your feedback and your saved stories will be removed. Your topics and settings stay.')) return;
+    await api.clearPersonalisation();
+    me.savedKeys = [];
+    toast('History cleared.');
+  });
+  const $push = $app.querySelector('[data-push]');
+  if ($push) {
+    const $note = $app.querySelector('[data-push-note]');
+    $push.addEventListener('click', async () => {
+      $push.classList.add('is-loading');
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const existing = await reg.pushManager.getSubscription();
+        if (me.push.subscribed && existing) {
+          await api.pushUnsubscribe(existing.endpoint);
+          await existing.unsubscribe();
+          me.push.subscribed = false;
+          $push.textContent = 'Turn on';
+          $note.textContent = 'Notifications are off.';
+        } else {
+          // Asked only now, after the reader chose to turn this on, and never on page load.
+          const perm = await Notification.requestPermission();
+          if (perm !== 'granted') { $note.textContent = 'Your browser blocked notifications. You can allow them in the browser’s site settings.'; return; }
+          const key = Uint8Array.from(atob(me.push.publicKey.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+          const sub = existing || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }));
+          await api.pushSubscribe(sub.toJSON());
+          me.push.subscribed = true;
+          $push.textContent = 'Turn off';
+          $note.textContent = 'On. You’ll get a nudge when your edition is ready.';
+        }
+      } catch (err) {
+        $note.textContent = /not supported|undefined/.test(String(err.message)) ? 'This browser doesn’t support notifications.' : err.message;
+      } finally {
+        $push.classList.remove('is-loading');
+      }
+    });
+  }
   const patch = async (key, raw) => {
     const value = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? Number(raw) : raw;
     const [a, b] = key.split('.');
@@ -902,6 +1011,35 @@ async function viewSettings() {
 
 // ── DOWNLOAD ────────────────────────────────────────────────────────────────
 
+async function viewLibrary() {
+  setNav('');
+  setTone('business');
+  loading('Opening your library…');
+  const { saved, editions } = await api.library();
+  const m = me.profile.mode;
+  const when = (iso) => longDate(iso);
+  const daily = editions.filter((e) => e.kind === 'daily');
+  render(
+    `<div class="page">
+      <p class="eyebrow">Library</p>
+      <h1>Everything you’ve <em class="grad-text" style="font-family:var(--accent-serif);font-weight:400">kept.</em></h1>
+      <section class="panel lib"><h2 class="block__h">Saved stories</h2>
+        ${saved.length ? `<ul class="lib__list">${saved.map((s) => `<li><a href="#/story/${esc(s.editionId)}/${esc(s.storyId)}?mode=${m}"><b>${esc(s.headline)}</b><span>${esc(s.topic || '')} · saved ${esc(shortDate(s.savedAt.slice(0, 10)))}</span></a><button class="textlink" type="button" data-unsave="${esc(s.editionId)}/${esc(s.storyId)}">Remove</button></li>`).join('')}</ul>` : '<p class="lib__empty">Nothing saved yet. Tap the bookmark on any story to keep it here.</p>'}
+      </section>
+      <section class="panel lib"><h2 class="block__h">Past editions</h2>
+        ${daily.length ? `<ul class="lib__list">${daily.map((e) => `<li><a href="#/read/${esc(e.id)}?mode=${m}"><b>${esc(when(e.editorial_date))}</b><span>${e.budget_minutes}-minute edition · ${String(e.topics || '').split(',').filter(Boolean).length} topics${e.sample ? ' · sample' : ''}</span></a></li>`).join('')}</ul>` : '<p class="lib__empty">Your editions will appear here.</p>'}
+      </section>
+    </div>`,
+    { title: 'Library' },
+  );
+  $app.querySelectorAll('[data-unsave]').forEach((b) => b.addEventListener('click', async () => {
+    const [e, s] = b.dataset.unsave.split('/');
+    await api.unsave(e, s);
+    me.savedKeys = (me.savedKeys || []).filter((k) => k !== b.dataset.unsave);
+    viewLibrary();
+  }));
+}
+
 async function viewDownload() {
   setNav('download');
   setTone('business');
@@ -914,7 +1052,7 @@ async function viewDownload() {
       <p class="eyebrow">Download</p>
       <h1>Take it <em class="grad-text" style="font-family:var(--accent-serif);font-weight:400">with you.</em></h1>
       <p class="lede">The same edition as a printable newspaper, a short listen, or a ping in your pocket.</p>
-      <div class="dl dl--install"><h3>Install Over Coffee</h3><p>Put it on your home screen and it opens like an app, full screen, and your last edition still works offline.</p><div class="dl__actions"><button class="btn btn--small btn--brand" type="button" data-install hidden>Install app</button></div><p class="dl__hint">iPhone: tap Share, then “Add to Home Screen”. Android and desktop Chrome: use the Install button above or the browser menu.</p></div>
+      <div class="dl dl--install"><h3>Install Over Coffee</h3><p>Put it on your home screen and it opens like an app, full screen, and your last edition still works offline.</p><div class="dl__actions"><button class="btn btn--small" type="button" data-install hidden>Install app</button></div><p class="dl__hint">iPhone: tap Share, then “Add to Home Screen”. Android and desktop Chrome: use the Install button above or the browser menu.</p></div>
       <div class="dl-grid">
         <div class="dl"><h3>Newspaper PDF · Business</h3><p>Set for paper. ${ed.stats.readingMinutes.business}-minute read.</p><div class="dl__actions"><a class="btn btn--small" href="/api/editions/${esc(ed.id)}/pdf?mode=business" target="_blank" rel="noopener">Open PDF</a><a class="textlink" href="/api/editions/${esc(ed.id)}/pdf?mode=business&download=1">Save</a></div></div>
         <div class="dl"><h3>Newspaper PDF · Conversational</h3><p>The friendly edition, printable. ${ed.stats.readingMinutes.social}-minute read.</p><div class="dl__actions"><a class="btn btn--small" href="/api/editions/${esc(ed.id)}/pdf?mode=social" target="_blank" rel="noopener">Open PDF</a><a class="textlink" href="/api/editions/${esc(ed.id)}/pdf?mode=social&download=1">Save</a></div></div>

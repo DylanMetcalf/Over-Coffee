@@ -56,3 +56,17 @@ export async function renderPdf({ url, outFile, chrome = findChrome() }) {
   });
   return outFile;
 }
+
+/** PNG screenshot of a URL (share cards). Same Chromium as PDFs. */
+export async function renderPng({ url, outFile, width = 1200, height = 630, chrome = findChrome() }) {
+  if (!chrome) throw Object.assign(new Error('No Chromium available'), { code: 'NO_CHROME' });
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  await new Promise((resolve, reject) => {
+    const p = spawn(chrome, ['--headless', '--disable-gpu', '--no-sandbox', '--hide-scrollbars', `--window-size=${width},${height}`, '--virtual-time-budget=3000', `--screenshot=${outFile}`, url], { stdio: ['ignore', 'ignore', 'pipe'] });
+    let err = '';
+    p.stderr.on('data', (d) => (err += d));
+    p.on('close', (code) => (code === 0 && fs.existsSync(outFile) ? resolve() : reject(new Error('screenshot failed: ' + err.slice(-200)))));
+    p.on('error', reject);
+  });
+  return outFile;
+}

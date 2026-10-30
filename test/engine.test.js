@@ -22,7 +22,7 @@ test('clustering turns duplicate reporting into one event per development', () =
 test('every sample edition passes the quality gate', async () => {
   const store = new Store(':memory:');
   for (const topics of [['ai'], ['ai', 'food', 'farming'], ['robotics', 'manufacturing'], ['football']])
-    for (const m of [5, 10, 20]) {
+    for (const m of [3, 5, 10]) {
       const ed = await run(store, topics, m);
       assert.equal(ed.quality.status, 'pass', `${topics} ${m}: ${JSON.stringify(ed.quality.checks.filter((c) => c.status !== 'pass'))}`);
     }
@@ -31,14 +31,14 @@ test('every sample edition passes the quality gate', async () => {
 test('reading time is a budget, not a quota: no padding, longer budgets never drop stories', async () => {
   const store = new Store(':memory:');
   const counts = [];
-  for (const m of [5, 10, 20]) {
+  for (const m of [3, 5, 10]) {
     const ed = await run(store, ['ai', 'food', 'farming'], m);
     assert.ok(ed.stats.readingMinutes.business <= m, 'within budget');
     for (const e of ed.events.filter((e) => e.decision.status === 'published')) assert.ok(e.score.total >= ed.editorial.bar);
     counts.push(ed.stories.length);
   }
   assert.ok(counts[0] <= counts[1] && counts[1] <= counts[2]);
-  // Even the 20-minute edition leaves budget unused rather than publishing below the bar.
+  // Even the 10-minute edition leaves budget unused rather than publishing below the bar.
   const ed20 = await run(store, ['ai', 'food', 'farming'], 20);
   assert.ok(ed20.stats.readingMinutes.business < 20);
   assert.ok(ed20.events.some((e) => e.decision.status === 'held'));

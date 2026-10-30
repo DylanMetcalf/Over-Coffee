@@ -48,7 +48,7 @@ export const STAGES = [
  * @param {import('../store.js').Store} opts.store
  * @param {string} opts.userId
  * @param {string[]} opts.topicIds     topics for this edition (profile or today's override)
- * @param {number} opts.budgetMinutes  5 | 10 | 20
+ * @param {number} opts.budgetMinutes  3 | 5 | 10
  * @param {string} opts.date           editorial date, YYYY-MM-DD
  * @param {string} [opts.kind]         'daily' | 'preview'
  * @param {string} [opts.id]           fixed id (previews)

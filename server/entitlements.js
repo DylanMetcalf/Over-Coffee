@@ -5,7 +5,7 @@
 // There is no payment provider connected: plan changes are an owner action
 // (see docs/COMMERCIAL.md), not something a reader can trigger.
 
-const OPEN = { maxTopics: 12, budgets: [5, 10, 20], pdf: true, email: true, push: true, ads: true };
+const OPEN = { maxTopics: 12, budgets: [3, 5, 10], pdf: true, email: true, push: true, ads: true };
 
 export const DEFAULT_PLANS = { free: { ...OPEN }, supporter: { ...OPEN, ads: false } };
 

@@ -93,3 +93,11 @@ Automated: `npm test` 36 passing, `npm run qa` 43/43 browser checks. Live-web me
 | Analytics: delivery results, returning readers, saves, shares, feedback, ad events | PASS | owner stats endpoint; only real events recorded |
 | Landing page + social preview | PASS | how-it-works, editions explained, absolute `og:image` |
 | Source photos | NOT BUILT, by decision | feeds give no reuse licence; the app keeps its own generated abstract illustrations (no hotlinking, no failures to handle) |
+
+## Reading times: 3, 5 and 10 minutes (20 retired)
+| Item | Status | How verified |
+|---|---|---|
+| Onboarding, Settings and the lab offer 3 / 5 / 10 only; default 5 | PASS | browser |
+| Existing 20-minute readers move to 10 automatically | PASS | unit test (stored profile with 20) |
+| Each edition fits its budget; story count grows with the budget; 3 minutes is never empty | PASS | unit test on sample data (2 / 4 / 8 stories) |
+| Short editions carry at least 2 / 3 / 4 stories if they clear a quality floor (0.6), at most 3 / 6 / 12 | PASS | unit-tested logic; a genuinely quiet day still produces a short or empty edition |

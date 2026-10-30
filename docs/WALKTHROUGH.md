@@ -3,7 +3,7 @@
 ## 5-minute first run
 1. Open the link. Tap **Create an account** (email + 8-character password).
 2. Type what you care about, in your own words (“AI”, “hazardous area electrical”, “restaurants in Cape Town”). Tick the areas you want, or tap **Broad topic only**.
-3. Pick **5, 10 or 20 minutes** and **Business** or **Conversational**.
+3. Pick **3, 5 or 10 minutes** and **Business** or **Conversational**.
 4. Choose when it should be ready each morning (email) and tap Continue. Your first edition is built while you watch.
 5. Tap **Read today’s newspaper**. **Swipe sideways** to turn the page, **scroll down** to read it.
 6. Reached the last page? You’re done for today. That’s the point.
@@ -16,7 +16,7 @@
 
 **Setting up interests.** Type anything. Common topics are recognised; anything else becomes a new topic the engine researches as it comes. For a new topic you’ll see suggested areas (e.g. explosion protection, zone classification). Select any, add your own, or follow the broad topic only. Edit anytime in **My topics**.
 
-**Reading time.** 5 min = only what’s worth five minutes (can be less on a quiet day). 10 = the full picture. 20 = more context. It never pads.
+**Reading time.** 5 min = only what’s worth five minutes (can be less on a quiet day). 3 = just the headlines. 10 = the full picture. It never pads.
 
 **Edition style.** *Business*: concise, precise, calm. *Conversational*: simple words and a friend’s tone, same facts, same sources, same caveats. Switch any time (top of the paper, or Settings); it never re-researches.
 

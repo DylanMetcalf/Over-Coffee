@@ -32,6 +32,8 @@ const BASE_URL = process.env.OC_BASE_URL || `http://localhost:${PORT}`;
 const SECURE = BASE_URL.startsWith('https://');
 const TRACKED = new Set(['story_saved', 'story_unsaved', 'feedback_given', 'share_created', 'share_visited', 'push_enabled', 'push_disabled', 'unsubscribed', 'history_cleared', 'ad_impression', 'ad_click', 'onboarding_completed', 'edition_opened', 'edition_completed', 'learn_more_opened', 'source_opened', 'pwa_installed', 'topics_changed', 'mode_changed', 'pdf_downloaded', 'lab_opened']);
 
+export const BUDGETS = [3, 5, 10];
+
 export const DEFAULT_PROFILE = {
   onboarded: false,
   topics: ['ai', 'food', 'farming'],
@@ -56,7 +58,12 @@ export function createApp({ store = new Store() } = {}) {
       return new Date().toISOString().slice(0, 10);
     }
   };
-  const profile = (user) => ({ ...DEFAULT_PROFILE, ...store.getProfile(user) });
+  // Reading times: 3, 5 or 10 minutes. The old 20-minute option was retired; readers who had it move to 10.
+  const profile = (user) => {
+    const p = { ...DEFAULT_PROFILE, ...store.getProfile(user) };
+    if (!BUDGETS.includes(Number(p.budgetMinutes))) p.budgetMinutes = 10;
+    return p;
+  };
   const today = (user) => dateFor(profile(user));
 
   function effectiveToday(user) {
@@ -115,7 +122,7 @@ export function createApp({ store = new Store() } = {}) {
 
   const routes = []; 
   const route = (method, pattern, handler, { open = false } = {}) => routes.push({ method, open, re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), handler });
-  const PREVIEW_ID = /^preview-(single|multi)-(5|10|20)$/;
+  const PREVIEW_ID = /^preview-(single|multi)-(3|5|10)$/;
   // A reader may open their own editions and the shared sample previews, nothing else.
   const owned = (user, id) => {
     if (PREVIEW_ID.test(id)) return true;
@@ -202,7 +209,7 @@ export function createApp({ store = new Store() } = {}) {
       if (next.topics.includes(k) && Array.isArray(v)) focus[k] = [...new Set(v.map((a) => String(a).trim().slice(0, 40)).filter(Boolean))].slice(0, 10);
     }
     next.focus = focus;
-    if (![5, 10, 20].includes(Number(next.budgetMinutes))) next.budgetMinutes = 10;
+    if (!BUDGETS.includes(Number(next.budgetMinutes))) next.budgetMinutes = 10;
     next.budgetMinutes = Number(next.budgetMinutes);
     if (!['business', 'social'].includes(next.mode)) next.mode = 'business';
     store.saveProfile(user, next);
@@ -305,7 +312,7 @@ export function createApp({ store = new Store() } = {}) {
   });
 
   route('GET', '/api/previews', async ({ query }) => {
-    const minutes = [5, 10, 20].includes(Number(query.get('minutes'))) ? Number(query.get('minutes')) : 10;
+    const minutes = BUDGETS.includes(Number(query.get('minutes'))) ? Number(query.get('minutes')) : 10;
     const [single, multi] = [await previewEdition('single', minutes), await previewEdition('multi', minutes)];
     return { single, multi };
   }, { open: true });

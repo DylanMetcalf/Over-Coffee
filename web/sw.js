@@ -6,7 +6,7 @@
 //   - Account, writes and anything else: never cached.
 // The cache is wiped on logout so a shared device never shows another reader's paper.
 
-const VERSION = 'oc-v5';
+const VERSION = 'oc-v6';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/css/fonts.css', '/css/tokens.css', '/css/paper.css', '/css/social.css', '/css/base.css', '/assets/favicon.svg', '/assets/icon-192.png', '/assets/mark.svg'];
 const DATA = /^\/api\/(today|editions\/[^/]+(\/ledger)?|me|auth\/me)$/;
 
@@ -26,7 +26,7 @@ async function networkFirst(req, fallbackKey) {
   const cache = await caches.open(VERSION);
   try {
     const res = await fetch(req);
-    if (res.ok) cache.put(fallbackKey || req, res.clone());
+    if (res.status === 200) cache.put(fallbackKey || req, res.clone()); // never cache a "still preparing" 202
     return res;
   } catch {
     const hit = await cache.match(fallbackKey || req);

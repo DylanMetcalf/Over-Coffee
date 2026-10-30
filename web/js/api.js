@@ -39,10 +39,23 @@ export const api = {
   interpret: (text) => request('POST', '/api/topics/interpret', { text }),
   random: () => request('GET', '/api/topics/random?seed=' + Date.now()),
   adventurous: () => request('GET', '/api/topics/adventurous?seed=' + Date.now()),
-  changeToday: (payload) => request('PUT', '/api/today', payload),
+  async changeToday(payload) {
+    const r = await request('PUT', '/api/today', payload);
+    if (r.pending) return { editionId: (await api.today()).id }; // wait for the rebuilt edition
+    return r;
+  },
   sponsored: null,
   async today() {
-    const { edition, sponsored } = await request('GET', '/api/today');
+    // The server answers "still preparing" after ~20s instead of holding the connection open.
+    // Poll until the edition is ready (first editions on live news take roughly a minute).
+    let r;
+    for (let i = 0; i < 120; i++) {
+      r = await request('GET', '/api/today');
+      if (!r.pending) break;
+      await new Promise((ok) => setTimeout(ok, 2500));
+    }
+    if (r.pending) throw new Error('Your edition is taking longer than usual. Give it a minute and try again.');
+    const { edition, sponsored } = r;
     editions.set(edition.id, edition);
     api.sponsored = sponsored || null;
     return edition;

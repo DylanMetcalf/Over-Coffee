@@ -515,3 +515,4 @@ body.is-embed .pager { height: calc(100dvh - 64px - env(safe-area-inset-bottom))
 @media (max-width: 860px) { .auth__how ol, .auth__eds { grid-template-columns: minmax(0, 1fr); } .auth__how { margin-top: 36px; } }
 .more-wrap { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .more-wrap .save { margin-left: 0; }
+.gen__wait { margin: 14px auto 0; max-width: 34em; text-align: center; font: 450 14.5px/1.5 var(--sans); color: var(--muted); }

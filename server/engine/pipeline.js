@@ -79,7 +79,7 @@ export async function runPipeline(opts) {
   stage('expand', `${topics.reduce((n, x) => n + x.expansion.length, 0)} research areas`);
 
   // 04 — RESEARCH
-  const adapter = createResearchAdapter();
+  const adapter = createResearchAdapter(opts.research); // previews pass 'sample' so they never depend on the live web
   const editionTime = new Date(date + 'T06:00:00Z');
   const research = await researchTopics({ adapter, topics, date, store });
   const retrievedAt = new Date(date + 'T05:40:00Z').toISOString();
@@ -190,8 +190,18 @@ export async function runPipeline(opts) {
   // 10 — WRITE
   const writer = createWriter({ store });
   const stories = [];
-  for (const e of editorial.picked) {
-    const w = await writer.write(e);
+  // Stories are independent, so they are written in parallel (4 at a time). A 10-story edition
+  // otherwise takes minutes, which is longer than a phone user, or the host's proxy, will wait.
+  const written = new Array(editorial.picked.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(4, editorial.picked.length) }, async () => {
+    while (next < editorial.picked.length) {
+      const i = next++;
+      written[i] = await writer.write(editorial.picked[i]);
+    }
+  }));
+  for (const [idx, e] of editorial.picked.entries()) {
+    const w = written[idx];
     // Desk material can only cite what this edition actually researched.
     w.depth = { ...w.depth, saying: (w.depth?.saying || []).filter((q) => e.sourceIds.includes(q.source)) };
     const topic = topics.find((x) => x.id === e.primaryTopic);

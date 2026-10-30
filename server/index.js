@@ -91,15 +91,29 @@ export function createApp({ store = new Store() } = {}) {
     return runPipeline({ store, userId: user, topicIds, budgetMinutes, date: today(user), kind: 'daily', extra: override?.reason ? override : null, focus: profile(user).focus });
   }
 
+  // Sample previews (landing page, newspaper lab, onboarding examples) always use the fictional corpus:
+  // instant, free, labelled, and identical for everyone, whatever the live research settings are.
   async function previewEdition(variant, minutes) {
     const id = `preview-${variant}-${minutes}`;
     const existing = store.getEdition(id);
-    if (existing && existing.engineVersion === ENGINE_VERSION) return existing;
+    if (existing && existing.engineVersion === ENGINE_VERSION && existing.sample) return existing;
     const topicIds = variant === 'single' ? ['ai'] : ['ai', 'food', 'farming'];
-    return runPipeline({ store, userId: 'preview', topicIds, budgetMinutes: minutes, date: dateFor(null), kind: 'preview', id });
+    return runPipeline({ store, userId: 'preview', topicIds, budgetMinutes: minutes, date: createResearchAdapter('sample').editionDate, kind: 'preview', id, research: 'sample' });
   }
 
-  const routes = [];
+  // Behind a host's proxy every request arrives from the proxy's address: use the forwarded client address,
+  // otherwise all readers would share one rate-limit bucket.
+  const clientIp = (req) => String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
+
+  // Generation can outlast a phone's (or the proxy's) patience. Wait briefly, then answer "still preparing"
+  // and let the app poll; the work continues in the background and the next request joins it.
+  const withinOrPending = async (promise, ms = Number(process.env.OC_PENDING_MS || 20000)) => {
+    const timer = new Promise((r) => setTimeout(() => r('pending'), ms));
+    const out = await Promise.race([promise, timer]);
+    return out === 'pending' ? null : out;
+  };
+
+  const routes = []; 
   const route = (method, pattern, handler, { open = false } = {}) => routes.push({ method, open, re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), handler });
   const PREVIEW_ID = /^preview-(single|multi)-(5|10|20)$/;
   // A reader may open their own editions and the shared sample previews, nothing else.
@@ -122,7 +136,7 @@ export function createApp({ store = new Store() } = {}) {
   route('POST', '/api/auth/signup', ({ req, res, body }) => {
     const email = normaliseEmail(body.email);
     const pw = String(body.password || '');
-    if (rateLimited('signup:' + (req.socket.remoteAddress || ''), 30)) return { status: 429, error: 'Too many attempts. Try again in a few minutes.' };
+    if (rateLimited('signup:' + clientIp(req), 30)) return { status: 429, error: 'Too many attempts. Try again in a few minutes.' };
     if (!validEmail(email)) return { status: 400, error: 'Enter a valid email address.' };
     if (pw.length < 8) return { status: 400, error: 'Use at least 8 characters for your password.' };
     if (store.accountByEmail(email)) return { status: 409, error: 'That email already has an account. Try logging in.' };
@@ -135,7 +149,7 @@ export function createApp({ store = new Store() } = {}) {
   }, { open: true });
   route('POST', '/api/auth/login', ({ req, res, body }) => {
     const email = normaliseEmail(body.email);
-    if (rateLimited('login:' + (req.socket.remoteAddress || '') + email, 8)) return { status: 429, error: 'Too many attempts. Try again in a few minutes.' };
+    if (rateLimited('login:' + clientIp(req) + email, 8)) return { status: 429, error: 'Too many attempts. Try again in a few minutes.' };
     const acct = store.accountByEmail(email);
     if (!acct || !verifyPassword(String(body.password || ''), acct.pwHash)) return { status: 401, error: 'Email or password is not right.' };
     startSession(store, acct.userId, res, { secure: SECURE });
@@ -159,6 +173,7 @@ export function createApp({ store = new Store() } = {}) {
       override,
       todayTopics: topicIds.map(resolveTopic),
       profileTopics: p.topics.map(resolveTopic),
+      email: { live: !!(process.env.RESEND_API_KEY && process.env.OC_EMAIL_FROM) },
       plan: store.planOf(user),
       entitlements: entitlementsFor(store.planOf(user)),
       push: { enabled: pushConfigured(), publicKey: pushConfigured() ? process.env.VAPID_PUBLIC_KEY : null, subscribed: store.listPush(user).length > 0 },
@@ -209,7 +224,7 @@ export function createApp({ store = new Store() } = {}) {
   }, { open: true });
 
   route('POST', '/api/topics/suggest', async ({ req, body }) => {
-    if (rateLimited('suggest:' + (req.socket.remoteAddress || ''), 40, 10 * 60_000)) return { status: 429, error: 'Slow down a little.' };
+    if (rateLimited('suggest:' + clientIp(req), 60, 10 * 60_000)) return { status: 429, error: 'Slow down a little.' };
     const topic = interpretInterest(String(body.text || '').slice(0, 80));
     if (!topic) return { status: 400, error: 'Type a topic.' };
     return { topic: topic.label, ...(await suggestAreas({ topic, store })) };
@@ -232,18 +247,20 @@ export function createApp({ store = new Store() } = {}) {
     if (!ids.length) store.setOverride(user, today(user), null);
     else store.setOverride(user, today(user), { topicIds: ids, reason: body.reason || 'changed', path: body.path || null });
     if (body.keep && ids.length) store.saveProfile(user, { ...profile(user), topics: ids });
-    const edition = await todaysEdition(user);
-    return { editionId: edition.id };
+    const edition = await withinOrPending(todaysEdition(user));
+    return edition ? { editionId: edition.id } : { status: 202, pending: true };
   });
 
   route('GET', '/api/today', async ({ user }) => {
-    const ed = await todaysEdition(user);
+    const ed = await withinOrPending(todaysEdition(user));
+    if (!ed) return { status: 202, pending: true };
     const sponsored = ed.stale ? null : pickSponsored({ store, user, plan: store.planOf(user), topicIds: ed.config?.topicIds || [], date: ed.editorialDate, editionId: ed.id });
     return { edition: ed, sponsored };
   });
 
   route('POST', '/api/today/regenerate', async ({ user }) => {
-    const ed = await todaysEdition(user, { force: true });
+    const ed = await withinOrPending(todaysEdition(user, { force: true }));
+    if (!ed) return { status: 202, pending: true };
     return { edition: ed };
   });
 

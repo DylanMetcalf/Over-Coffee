@@ -731,7 +731,7 @@ async function viewWelcome(_, query) {
         <h1 class="ob__q">When should it <em>arrive?</em></h1>
         <p class="ob__hint">Pick a time, and how you’d like a nudge when it’s ready. This is what your morning ping looks like.</p>
         <div class="fields" style="max-width:none;margin-bottom:28px"><div class="field"><label for="ob-time">Ready by</label><input id="ob-time" type="time" value="${esc(ob.time)}" data-time></div></div>
-        <div class="channel-pick">${CHANNELS.map(([v, t, d]) => `<button type="button" class="channel" data-chan="${v}" aria-pressed="${ob.channels.includes(v)}"><b>${t}</b><span>${d}</span></button>`).join('')}</div>
+        <div class="channel-pick">${CHANNELS.map(([v, t, d]) => `<button type="button" class="channel" data-chan="${v}" aria-pressed="${ob.channels.includes(v)}"><b>${t}</b><span>${d}</span></button>`).join('')}</div>${me.email && !me.email.live ? '<p class="ping-note"><b>Heads up:</b> morning emails are still in testing and may not reach everyone yet. Your edition is always waiting in the app.</p>' : ''}
         <div data-ping></div>
         <div class="field" data-wa hidden style="margin-top:22px"><label for="ob-wa">Your WhatsApp number</label><input id="ob-wa" type="tel" inputmode="tel" placeholder="+27 82 123 4567" value="${esc(ob.whatsapp)}" data-wa-input></div>
       </div>${nav(true, true, 'Make my first newspaper')}</div>`,
@@ -766,6 +766,7 @@ async function viewWelcome(_, query) {
       <h2 class="gen__title">Setting your first edition.</h2>
       <p class="gen__sub">${topicLine(ob.topics)}</p>
       <div class="gen__bar"><span data-bar></span></div>
+      <p class="gen__wait">Your first edition takes about a minute: we’re reading the news, checking it and writing it up. Keep this page open.</p>
       <ol class="stages">${me.stages.map((s) => `<li data-stage="${s.key}"><span class="stages__n">${s.number}</span><span>${esc(s.label)}</span><span class="stages__note"></span></li>`).join('')}</ol>
     </div><div></div></div>`,
     { title: 'Your first edition' },
@@ -780,7 +781,19 @@ async function viewWelcome(_, query) {
   });
   api.forget();
   await refreshMe();
-  const ed = await api.today();
+  // Keep the bar moving while the server works (it eases towards 90% and never claims to be done).
+  let pct = 4;
+  const tick = setInterval(() => { pct += (90 - pct) * 0.04; const bar = $app.querySelector('[data-bar]'); if (bar) bar.style.width = `${pct.toFixed(1)}%`; }, 1000);
+  let ed;
+  try {
+    ed = await api.today();
+  } catch (err) {
+    clearInterval(tick);
+    $app.querySelector('.gen__wait').innerHTML = `${esc(err.message)} <a class="textlink" href="#/">Go to Today</a>`;
+    return;
+  } finally {
+    clearInterval(tick);
+  }
   const items = [...$app.querySelectorAll('[data-stage]')];
   for (const [i, entry] of ed.pipeline.entries()) {
     const li = items.find((x) => x.dataset.stage === entry.stage);
@@ -891,7 +904,7 @@ async function viewSettings() {
       <p class="block__note">When your edition is ready, we nudge you with a teaser of a real story. Pick where. You can also just open the paper.</p>
       <section class="panel">
         ${row('Ready by', 'Your edition is prepared by this time each morning.', `<div class="field"><input type="time" value="${esc(p.delivery.time)}" data-time></div>`)}
-        ${row('Send a ping to', 'Choose any combination.', `<div class="seg" role="group" data-chans>${CHANNELS.map(([v, t]) => `<button type="button" data-chan="${v}" aria-pressed="${chans.includes(v)}">${t}</button>`).join('')}</div>`)}
+        ${row('Send a ping to', me.email && !me.email.live ? 'Morning emails are still in testing and may not reach everyone yet. Your edition is always in the app.' : 'A short email when your edition is ready.', `<div class="seg" role="group" data-chans>${CHANNELS.map(([v, t]) => `<button type="button" data-chan="${v}" aria-pressed="${chans.includes(v)}">${t}</button>`).join('')}</div>`)}
         <div class="setting" data-wa ${chans.includes('whatsapp') ? '' : 'hidden'}><div class="setting__label"><h3>WhatsApp number</h3><p>Only used to message you your edition.</p></div><div class="field"><input type="tel" inputmode="tel" placeholder="+27 82 123 4567" value="${esc(p.delivery.whatsapp || '')}" data-wa-input></div></div>
       </section>
       <div data-ping>${pingPreview(sample, { channels: ['push', 'whatsapp', 'email'], time: p.delivery.time })}</div>

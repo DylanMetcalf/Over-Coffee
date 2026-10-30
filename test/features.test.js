@@ -146,3 +146,49 @@ test('sponsored placements: off by default, labelled, https-only, ad-free plans 
   assert.equal(entitlementsFor('nonsense').ads, true, 'unknown plans fall back to free');
   assert.equal(entitlementsFor('free', { OC_PLANS_JSON: '{"free":{"maxTopics":3}}' }).maxTopics, 3, 'terms are configurable');
 });
+
+test('previews are always the fictional sample, even when live research is configured', async () => {
+  process.env.OC_RESEARCH = 'rss';
+  try {
+    const app = createApp({ store: new Store(':memory:') });
+    const ed = await app.previewEdition('single', 5);
+    assert.equal(ed.sample, true);
+    assert.equal(ed.editorialDate, '2026-10-02');
+    assert.ok(ed.stories.length >= 1, 'sample preview has stories');
+    // a stale preview saved by an older version from live data is replaced
+    app.store.db.prepare("UPDATE editions SET sample = 0 WHERE id = 'preview-single-5'").run();
+    const re = await app.previewEdition('single', 5);
+    assert.equal(re.sample, true);
+  } finally {
+    delete process.env.OC_RESEARCH;
+  }
+});
+
+test('slow generation answers "still preparing" instead of hanging; the next request joins the same build', async () => {
+  process.env.OC_PENDING_MS = '1';
+  try {
+    const { call } = await boot();
+    await call('PUT', '/api/profile', { topics: ['ai', 'food', 'farming'], budgetMinutes: 20 }); // forces a rebuild
+    const first = await call('GET', '/api/today');
+    assert.ok([200, 202].includes(first.status));
+    let r = first;
+    for (let i = 0; i < 50 && r.status === 202; i++) { assert.equal(r.json.pending, true); await new Promise((ok) => setTimeout(ok, 40)); r = await call('GET', '/api/today'); }
+    assert.equal(r.status, 200);
+    assert.ok(r.json.edition.stories.length >= 1);
+  } finally {
+    delete process.env.OC_PENDING_MS;
+  }
+});
+
+test('rate limits are per client address (forwarded by the host), not one shared bucket', async () => {
+  const app = createApp({ store: new Store(':memory:') });
+  const server = http.createServer(app.handler);
+  server.unref();
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const signup = (ip, n) => fetch(base + '/api/auth/signup', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': ip }, body: JSON.stringify({ email: `u${n}@rl.test`, password: 'longenough1' }) }).then((r) => r.status);
+  let blocked = 0;
+  for (let i = 0; i < 33; i++) if ((await signup('9.9.9.9', i)) === 429) blocked++;
+  assert.ok(blocked >= 1, 'one address is limited');
+  assert.equal(await signup('8.8.8.8', 100), 200, 'a different address is not');
+});

@@ -16,7 +16,7 @@ const EMOJI = /\p{Extended_Pictographic}/u;
 
 test('every edition carries honest hooks for push, email and WhatsApp in both voices', async () => {
   for (const topics of [['ai'], ['ai', 'food', 'farming'], ['robotics'], ['football']])
-    for (const m of [5, 10, 20]) {
+    for (const m of [3, 5, 10]) {
       const ed = await run(topics, m);
       assert.ok(ed.hooks, 'hooks exist');
       assert.equal(ed.quality.checks.find((c) => c.id === 'hooks').status, 'pass', JSON.stringify(ed.quality.checks.find((c) => c.id === 'hooks').items));

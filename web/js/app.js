@@ -584,7 +584,7 @@ async function viewSource([edId, sourceId], query) {
 
 // ── ONBOARDING ──────────────────────────────────────────────────────────────
 
-const ob = { step: 1, topics: [], budget: 10, mode: 'business', time: '06:00', channels: ['email'], whatsapp: '', focus: {} };
+const ob = { step: 1, topics: [], budget: 5, mode: 'business', time: '06:00', channels: ['email'], whatsapp: '', focus: {} };
 const SUGGEST = ['AI', 'Technology', 'Farming', 'Food', 'South Africa', 'Business', 'Renewable energy', 'Finance', 'Climate', 'Manufacturing', 'Football', 'Photography', 'Cars'];
 
 async function viewWelcome(_, query) {
@@ -673,9 +673,9 @@ async function viewWelcome(_, query) {
 
   if (ob.step === 2) {
     const opts = [
+      [3, 'The headlines', 'Just the biggest stories, in a few lines each. Done before your coffee cools.'],
       [5, 'The essentials', 'Only what is genuinely worth five minutes. On a quiet day, less.'],
       [10, 'The full picture', 'The day’s important developments, with context where it helps.'],
-      [20, 'Room for depth', 'More context and a few more stories — never padding.'],
     ];
     render(
       `<div class="ob">${progress}<div class="ob__body">
@@ -893,7 +893,7 @@ async function viewSettings() {
       <h1>Let the editor <em class="grad-text" style="font-family:var(--accent-serif);font-weight:400">decide.</em></h1>
       <p class="lede">A few choices are yours. The rest — what matters, how much, in what order — is the editor’s job.</p>
       <section class="panel">
-        ${row('Reading time', 'A budget, not a quota.', seg('budgetMinutes', [[5, '5 min'], [10, '10 min'], [20, '20 min']], p.budgetMinutes))}
+        ${row('Reading time', 'A budget, not a quota.', seg('budgetMinutes', [[3, '3 min'], [5, '5 min'], [10, '10 min']], p.budgetMinutes))}
         ${row('Voice', 'Business or Conversational. Switching never re-researches your edition.', seg('mode', [['business', 'Business'], ['social', 'Conversational']], p.mode))}
         ${row('Discovery', 'How often the editor brings in something adjacent to your interests.', seg('discovery', [['off', 'Never'], ['occasionally', 'Now and then'], ['often', 'Often']], p.discovery))}
         ${row('PDF', 'Paper size for printing.', seg('pdf.paper', [['A4', 'A4'], ['Letter', 'Letter']], p.pdf?.paper || 'A4'))}
@@ -1098,7 +1098,7 @@ async function viewCompare(_, query) {
   setNav('');
   const set = query.get('set') === 'single' ? 'single' : query.get('set') === 'multi' ? 'multi' : 'single';
   const mode = query.get('mode') === 'social' ? 'social' : 'business';
-  const minutes = [5, 10, 20].includes(Number(query.get('m'))) ? Number(query.get('m')) : 10;
+  const minutes = [3, 5, 10].includes(Number(query.get('m'))) ? Number(query.get('m')) : 10;
   const view = ['one', 'modes', 'topics'].includes(query.get('view')) ? query.get('view') : 'one';
   const dev = query.get('dev') === 'mobile' ? 'mobile' : 'desktop';
   setTone(view === 'one' ? mode : 'business');
@@ -1151,7 +1151,7 @@ async function viewCompare(_, query) {
       <div class="cmp-controls">
         <span><span class="field__label">Compare</span><span class="seg"><a href="${link({ view: 'one' })}" aria-current="${view === 'one'}">One at a time</a><a href="${link({ view: 'modes' })}" aria-current="${view === 'modes'}">Business vs Conversational</a><a href="${link({ view: 'topics' })}" aria-current="${view === 'topics'}">Single vs Multi</a></span></span>
         <span><span class="field__label">Device</span><span class="seg"><a href="${link({ dev: 'desktop' })}" aria-current="${dev === 'desktop'}">Desktop</a><a href="${link({ dev: 'mobile', view: 'one' })}" aria-current="${dev === 'mobile'}">Phone (swipe pages)</a></span></span>
-        <span><span class="field__label">Reading budget</span><span class="seg">${[5, 10, 20].map((x) => `<a href="${link({ m: x })}" aria-current="${minutes === x}">${x} min</a>`).join('')}</span></span>
+        <span><span class="field__label">Reading budget</span><span class="seg">${[3, 5, 10].map((x) => `<a href="${link({ m: x })}" aria-current="${minutes === x}">${x} min</a>`).join('')}</span></span>
       </div>
       <p class="cmp-explain">${explain}</p>
     </div>

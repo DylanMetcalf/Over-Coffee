@@ -14,7 +14,7 @@
 export const WPM = 230;
 
 /** Minimum score to publish, per reading budget (minutes). */
-export const BAR = { 5: 0.84, 10: 0.77, 20: 0.62 };
+export const BAR = { 3: 0.88, 5: 0.84, 10: 0.77 };
 
 /** Target words per depth tier (the writer writes to these targets). */
 export const TIER_WORDS = { brief: 60, standard: 130, full: 230 };
@@ -28,16 +28,27 @@ export function budgetWords(minutes) {
 }
 
 function preferredTier(rank, minutes) {
+  if (minutes <= 3) return rank === 0 ? 'standard' : 'brief'; // headlines: the lead gets a paragraph, the rest a line or two
   if (rank === 0) return 'full';
-  if (minutes >= 20) return 'full';
   if (minutes >= 10) return rank <= 2 ? 'full' : 'standard';
   return 'standard';
 }
 
+/** Short editions still deserve a few real stories: at least this many, if they clear FLOOR. */
+export const MIN_STORIES = { 3: 2, 5: 3, 10: 4 };
+export const FLOOR = 0.6;
+/** And no more than this many, so a 3-minute edition stays a few headlines even on a busy day. */
+export const MAX_STORIES = { 3: 3, 5: 6, 10: 12 };
+
 export function editEdition(events, { minutes, lenient = false }) {
-  const bar = lenient ? Math.min(BAR[minutes] ?? BAR[10], 0.6) : BAR[minutes] ?? BAR[10];
+  const baseBar = lenient ? Math.min(BAR[minutes] ?? BAR[10], FLOOR) : BAR[minutes] ?? BAR[10];
   const budget = budgetWords(minutes);
   const ranked = [...events].sort((a, b) => b.score.total - a.score.total);
+  // A short edition carries the top few stories that clear a minimum quality floor, rather than going
+  // empty because nothing hit a high bar that day. A genuinely quiet day (nothing above the floor) stays quiet.
+  const eligible = ranked.filter((e) => !e.rejectReason && !e.score.penaltyReasons.includes('sensational') && e.status !== 'unsupported');
+  const want = MIN_STORIES[minutes] ?? 3;
+  const bar = Math.min(baseBar, Math.max(FLOOR, eligible.length >= want ? eligible[want - 1].score.total : FLOOR));
   const decisions = new Map();
   const picked = [];
   let used = 0;
@@ -59,6 +70,10 @@ export function editEdition(events, { minutes, lenient = false }) {
           ? `Below today’s bar for a ${minutes}-minute edition (${e.score.total.toFixed(2)} < ${bar.toFixed(2)}). Would run in a longer edition.`
           : `Below the bar (${e.score.total.toFixed(2)}). Not significant enough to take the reader’s time.`,
       });
+      continue;
+    }
+    if (picked.length >= (MAX_STORIES[minutes] ?? 12)) {
+      decisions.set(e.id, { status: 'held', reason: `Cleared the bar but a ${minutes}-minute edition carries at most ${MAX_STORIES[minutes]} stories.` });
       continue;
     }
     const pref = preferredTier(picked.length, minutes);

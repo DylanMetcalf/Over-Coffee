@@ -192,3 +192,25 @@ test('rate limits are per client address (forwarded by the host), not one shared
   assert.ok(blocked >= 1, 'one address is limited');
   assert.equal(await signup('8.8.8.8', 100), 200, 'a different address is not');
 });
+
+test('reading times are 3, 5 and 10 minutes: shorter editions are shorter, 20 is retired and migrates to 10', async () => {
+  const { app, call } = await boot();
+  const user = (await call('GET', '/api/me')).json.user.id;
+  const sizes = {};
+  for (const m of [3, 5, 10]) {
+    assert.equal((await call('PUT', '/api/profile', { budgetMinutes: m })).json.profile.budgetMinutes, m);
+    let r = await call('GET', '/api/today');
+    for (let i = 0; i < 50 && r.status === 202; i++) { await new Promise((ok) => setTimeout(ok, 40)); r = await call('GET', '/api/today'); }
+    const ed = r.json.edition;
+    sizes[m] = ed.stories.length;
+    assert.equal(ed.config.budgetMinutes, m);
+    assert.ok(ed.stats.readingMinutes.business <= m * 1.05, `${m}-minute edition fits (${ed.stats.readingMinutes.business} min)`);
+  }
+  assert.ok(sizes[3] <= sizes[5] && sizes[5] <= sizes[10], 'story count grows with the budget: ' + JSON.stringify(sizes));
+  assert.ok(sizes[3] >= 1, 'even the 3-minute edition is not empty');
+  assert.equal((await call('PUT', '/api/profile', { budgetMinutes: 20 })).json.profile.budgetMinutes, 10, '20 is rejected');
+  app.store.saveProfile(user, { ...app.profile(user), budgetMinutes: 20 }); // an account saved before the change
+  assert.equal(app.profile(user).budgetMinutes, 10, 'old 20-minute readers move to 10');
+  assert.equal((await call('GET', '/api/editions/preview-single-20')).status, 404);
+  assert.equal((await call('GET', '/api/editions/preview-single-3')).status, 200);
+});
